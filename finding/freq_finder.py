@@ -291,19 +291,10 @@ def get_neighbors(pat: str, dist: int) -> list:
         return list(BASES)
     # lists of strings currently 0, 1, 2, .... d differences from pat
     neighbors = [[] for _ in range(dist + 1)]
-    # set up lists with the single-base strings
-    correct = pat[0]
-    try:
-        BASES.index(correct)
-    except ValueError:
-        raise ValueError('Non-DNA base "' + correct + '" in given string')
-    for base in BASES:
-        if base == correct:
-            neighbors[0] = [base]
-        else:
-            neighbors[1].append(base)
+    # build off empty string
+    neighbors[0] = ['']
     # add on new chars to each existing string one at a time
-    for i in range(1, len(pat)):
+    for i in range(len(pat)):
         old = list(neighbors)
         neighbors = [[] for _ in range(dist + 1)]
         correct = pat[i]
@@ -312,7 +303,7 @@ def get_neighbors(pat: str, dist: int) -> list:
         except ValueError:
             raise ValueError('Non-DNA base "' + correct + '" in given string')
         # loop over all dist-lists
-        for cur_dist in range(0, dist + 1):
+        for cur_dist in range(dist + 1):
             for cur_pat in old[cur_dist]:
                 # using the correct char does not move back a list
                 neighbors[cur_dist].append(cur_pat + correct)
