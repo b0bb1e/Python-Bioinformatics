@@ -56,7 +56,7 @@ def get_neighbors(pat: str, dist: int) -> list:
         neighbors = [[] for _ in range(dist + 1)]
         correct = pat[i]
         try:
-            print(BASES.index(correct))
+            BASES.index(correct)
         except ValueError:
             raise ValueError('Non-DNA base "' + correct + '" in given string')
         # loop over all dist-lists
@@ -99,6 +99,11 @@ def brute_finder(DNAs: list, pat_len: int, dist: int) -> set:
     for DNA in DNAs:
         if not DNA:
             raise ValueError('Cannot use empty string as a motif location')
+        for base in DNA:
+            try:
+                BASES.index(base)
+            except:
+                raise ValueError('Non-DNA base "' + base + '" in given string')
     if pat_len < 1:
         raise ValueError('Motifs must be at least 1 base long')
     motifs = set()
@@ -122,3 +127,73 @@ def brute_finder(DNAs: list, pat_len: int, dist: int) -> set:
                     if found_all:
                         motifs.add(neighbor)
     return motifs
+
+def all_DNA_strings(pat_len: int) -> list:
+    """Produce all DNA strings of a certain length
+
+    :param pat_len: the length of all strings to produce
+    :type pat_len: int
+    :returns: the DNA strings of length pat_len
+    :rtype: list
+    """
+    
+    if pat_len < 0:
+        raise ValueError('Cannot find negative-length strings')
+    if pat_len == 0:
+        return ['']
+    all_DNA = []
+    # recursion; adding on all bases to each string of length less than
+    for short in all_DNA_strings(pat_len - 1):
+        for base in BASES:
+            all_DNA.append(short + base)
+    return all_DNA
+
+def median_string(DNAs: list, pat_len: int) -> str:
+    """Finds an optimal median string between all DNA strings
+
+    A 'median string' is of length pat_len and appears in all DNA strings
+    passed in with a minimal number of substitutions
+
+    :param DNAs: DNA strings
+    :type DNAs: list
+    :param pat_len: the length of median strings to search for
+    :type pat_len: int
+    :returns: the best median string
+    :rtype: list
+    """
+    
+    if not DNAs:
+        raise ValueError('Cannot find medians between non-existant strings')
+    if len(DNAs) < 2:
+        raise ValueError('Must compare at lest 2 strings to find medians')
+    for DNA in DNAs:
+        if not DNA:
+            raise ValueError('Cannot use empty string as a median location')
+    if pat_len < 1:
+        raise ValueError('Medians must be at least 1 base long')
+    min_dist = len(DNAs) * pat_len + 1
+    best_str = ''
+    for cur_str in all_DNA_strings(pat_len):
+        # distance for cur_str
+        cur_dist = 0
+        for DNA in DNAs:
+            # distance for this DNA string
+            this_dist = pat_len + 1
+            for i in range(len(DNA) - pat_len + 1):
+                # distance for this substring
+                dist = ham_dist(cur_str, DNA[i:i + pat_len])
+                if dist < this_dist:
+                    this_dist = dist
+            cur_dist += this_dist
+        if cur_dist < min_dist:
+            best_str = cur_str
+            min_dist = cur_dist
+    return best_str
+        
+if __name__ == '__main__':
+    with open('data.txt') as data:
+        pat_len = int(data.readline().rstrip())
+        DNAs = []
+        for line in data:
+            DNAs.append(line.rstrip())
+    print(median_string(DNAs, pat_len))
