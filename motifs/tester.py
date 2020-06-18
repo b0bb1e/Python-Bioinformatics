@@ -106,7 +106,7 @@ class Tester(unittest.TestCase):
                       'AATTGAACATCTTACTCTTTTCGCTTTCAAAAAAAAGGCC'], 6,
                      ['TTAACC', 'ATAACT', 'TTAACC', 'TGAAGT', 'TTAACC',
                       'TTAAGC', 'TTAACC', 'TGAACA']))
-                     
+
     def test_brute(self):
         """Brute-force motif finder should find exact motifs"""
 
@@ -150,7 +150,7 @@ class Tester(unittest.TestCase):
         
         for DNAs, pat_len in self.known_g_or_r_failure:
             self.assertRaises(ValueError, motifs.greedy_finder, DNAs, pat_len)
-
+#Set up before cutting (7) -> PREPARE
     def test_random(self):
         """Random motif finder should find expected motifs"""
 
@@ -165,6 +165,21 @@ class Tester(unittest.TestCase):
         
         for DNAs, pat_len in self.known_g_or_r_failure:
             self.assertRaises(ValueError, motifs.random_finder, DNAs, pat_len)
+
+    def test_sampler(self):
+        """Random-sampler motif finder should find expected motifs"""
+
+        test_num = 1
+        for DNAs, pat_len, correct in self.known_random:
+            result = motifs.sampler_finder(DNAs, pat_len)
+            self.assertEqual(correct, result, msg=('Test #' + str(test_num)))
+            test_num += 1
+
+    def test_sampler_failure(self):
+        """Random-sampler motif finder should error on bad input"""
+        
+        for DNAs, pat_len in self.known_g_or_r_failure:
+            self.assertRaises(ValueError, motifs.sampler_finder, DNAs, pat_len)
             
 if __name__ == '__main__':
     unittest.main()
