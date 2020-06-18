@@ -34,7 +34,7 @@ def get_neighbors(pat: str, dist: int) -> list:
     :param dist: the maximum number of changes to allow
     :type dist: int
     :returns: all neighbors of pat
-    :rtype: list
+    :rtype: list (of strs)
     """
     
     if not pat:
@@ -83,13 +83,13 @@ def brute_finder(DNAs: list, pat_len: int, dist: int) -> set:
     first DNA string
     
     :param DNAs: DNA strings with a shared motif
-    :type DNAs: list
+    :type DNAs: list (of strs)
     :param pat_len: the length of motifs to search for
     :type pat_len: int
     :param dist: the maximum substitutions for each instance of the motif
     :type dist: int
     :returns: all motifs conserved between all DNA strings
-    :rtype: set
+    :rtype: set (of strs)
     """
 
     if not DNAs:
@@ -134,7 +134,7 @@ def all_DNA_strings(pat_len: int) -> list:
     :param pat_len: the length of all strings to produce
     :type pat_len: int
     :returns: the DNA strings of length pat_len
-    :rtype: list
+    :rtype: list (of strs)
     """
     
     if pat_len < 0:
@@ -155,7 +155,7 @@ def median_string(DNAs: list, pat_len: int) -> str:
     passed in with a minimal number of substitutions
 
     :param DNAs: DNA strings
-    :type DNAs: list
+    :type DNAs: list (of strs)
     :param pat_len: the length of median strings to search for
     :type pat_len: int
     :returns: the best median string
@@ -189,11 +189,183 @@ def median_string(DNAs: list, pat_len: int) -> str:
             best_str = cur_str
             min_dist = cur_dist
     return best_str
+
+def calc_prob(pat: str, profile: list) -> float:
+    """Calculates probability of a string given a profile
+
+    :param pat: the string to find probability of
+    :type pat: str
+    :param profile: a probability profile (4 rows)
+    :type profile: list (of lists (of floats))
+    :returns: the probability of pat given profile
+    :rtype: float
+    """
+    
+    if not pat:
+        raise ValueError('Cannot calculate probability of empty string')
+    if not profile:
+        raise ValueError('Cannot calculate probability without a profile')
+    if len(profile) != 4:
+        raise ValueError('Profiles must have 4 rows, one for each base')
+    # profiles must be exactly as long (column wise) as the patterns
+    pat_len = len(profile[0])
+    if (pat_len != len(profile[1]) or pat_len != len(profile[2])
+        or pat_len != len(profile[3])):
+        raise ValueError('All rows of profile must be same length')
+    if pat_len != len(pat):
+        raise ValueError('Profile is the wrong length for this pattern')
+    prob = 1
+    for i in range(pat_len):
+        try:
+            prob *= profile[BASES.index(pat[i])][i]
+        except:
+            raise ValueError('Non-DNA base "' + pat[i] + '" found')
+    return prob
+
+def best_by_profile(DNA: str, profile: list) -> str:
+    """Finds most probable substring given a profile
+
+    :param DNA: the string to search in
+    :type DNA: str
+    :param profile: a probability profile, 4 rows & pat_len columns
+    :type profile: list (of lists (of floats))
+    :returns: the most probable substring of DNA
+    :rtype: str
+    """
+    
+    if not DNA:
+        raise ValueError('Cannot search in empty string')
+    if not profile:
+        raise ValueError('Cannot search without a profile')
+    if len(profile) != 4:
+        raise ValueError('Profiles must have 4 rows, one for each base')
+    pat_len = len(profile[0])
+    if (pat_len != len(profile[1]) or pat_len != len(profile[2])
+        or pat_len != len(profile[3])):
+        raise ValueError('All rows of profile must be same length')
+    if pat_len > len(DNA):
+        raise ValueError('DNA string is not long enough for this profile')
+    best_prob = -1.
+    best_str = ''
+    # try all possible subbstrings
+    for i in range(len(DNA) - pat_len + 1):
+        cur_str = DNA[i:i + pat_len]
+        cur_prob = calc_prob(cur_str, profile)
+        if cur_prob > best_prob:
+            best_prob = cur_prob
+            best_str = cur_str
+    return best_str
+
+def get_profile(motifs: list) -> list:
+    """Calculate a profile (with pseudocounts!) for some motifs
+
+    :param motifs: DNA strings to build a profile off of
+    :type motfis: list (of strs)
+    :returns: a completed probability profile
+    :rtype: list (of lists (of floats))
+    """
+    
+    motif_len = len(motifs[0])
+    profile = [[1 for _ in range(motif_len)] for __ in range(4)]
+    for motif in motifs:
+        for i in range(motif_len):
+            try:
+                profile[BASES.index(motif[i])][i] += 1
+            except ValueError:
+                raise ValueError('Non-DNA base "' + pat[i] + '" found')
+    num_motifs = len(motifs) + 4
+    # normalize column probabilities
+    return [[(val / num_motifs) for val in row] for row in profile]
+
+def consensus_string(profile: list) -> str:
+    """Determines a consensus string from a profile
+
+    :param profile: a probability profile, 4 rows
+    :type profile: list (of lists (of floats))
+    :returns: the most-probable string for this profile
+    :rtype: str
+    """
+    
+    con = ''
+    for col in range(len(profile[0])):
+        # assume A, try all others to prove better
+        best_base = 'A'
+        best_prob = profile[0][col]
+        for row in range(1, 4):
+            cur_prob = profile[row][col]
+            if cur_prob > best_prob:
+                best_base = BASES[row]
+                best_prob = cur_prob
+        con += best_base
+    return con
         
+def score_motifs(motifs: list) -> int:
+    """Scores motifs by their similarities to each other
+
+    Lower scores = more similar
+
+    :param motifs: the DNA motifs to score
+    :type motifs: list (of strs)
+    :returns: a similarity score
+    :rtype: int
+    """
+    
+    score = 0
+    consensus = consensus_string(get_profile(motifs))
+    for motif in motifs:
+        # score is sum of differences from consensus
+        score += ham_dist(motif, consensus)
+    return score
+
+def greedy_finder(DNAs: list, pat_len: int) -> list:
+    """Use a greedy algorithm to find good motifs
+
+    Moves from motifs -> median -> motifs, saving if better than last
+
+    :param DNAs: DNA strings to search for shared motifs
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    :returns: each string's version of a motif
+    :rtype: list (of strs)
+    """
+
+    if not DNAs:
+        raise ValueError('Cannot find motifs between non-existant strings')
+    num_DNAs = len(DNAs)
+    if num_DNAs < 2:
+        raise ValueError('Must compare at lest 2 strings to find motifs')
+    for DNA in DNAs:
+        if not DNA:
+            raise ValueError('Cannot use empty string as a motif location')
+        for base in DNA:
+            try:
+                BASES.index(base)
+            except:
+                raise ValueError('Non-DNA base "' + base + '" in given string')
+    if pat_len < 1:
+        raise ValueError('Motifs must be at least 1 base long')
+    # assume first substrings of each string is best
+    best_motifs = [DNA[0:pat_len] for DNA in DNAs]
+    best_score = score_motifs(best_motifs)
+    # try starting with each substring of the first DNA
+    for i in range(len(DNAs[0]) - pat_len + 1):
+        cur_motifs = [DNAs[0][i:i + pat_len]]
+        # add on new motifs 1 at a time, by most prob
+        for j in range(1, num_DNAs):
+            cur_motifs.append(best_by_profile(DNAs[j], get_profile(cur_motifs)))
+        cur_score = score_motifs(cur_motifs)
+        # update if necessary
+        if cur_score < best_score:
+            best_motifs = cur_motifs
+            best_score = cur_score
+    return best_motifs
+
 if __name__ == '__main__':
     with open('data.txt') as data:
-        pat_len = int(data.readline().rstrip())
+        pat_len, num_DNAs = [int(x) for x in data.readline().split()]
         DNAs = []
         for line in data:
             DNAs.append(line.rstrip())
-    print(median_string(DNAs, pat_len))
+    for motif in greedy_finder(DNAs, pat_len):
+        print(motif)
