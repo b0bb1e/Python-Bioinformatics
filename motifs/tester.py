@@ -69,8 +69,8 @@ class Tester(unittest.TestCase):
                      ['GGCGG', 'GGCTC', 'GGCGG', 'GGCAG', 'GACGG', 'GACGG',
                       'GGCGC', 'GGCGC']))
 
-
-    known_greedy_failure = ((['GCCYAA', 'GGCCTG', 'AACCTA', 'TTCCTT'], 3),
+    # failure cases for greedy or random
+    known_g_or_r_failure = ((['GCCYAA', 'GGCCTG', 'AACCTA', 'TTCCTT'], 3),
                             (['GCCCAA', 'RGCCTG', 'AACCTA', 'TTCCTT'], 3),
                             (['GCCCAA', 'GGCCTG', 'AACCTA', 'TTCCTT'], 0),
                             (['GCCCAA', 'GGCCTG', '', 'TTCCTT'], 3),
@@ -78,6 +78,35 @@ class Tester(unittest.TestCase):
                             ([''], 3),
                             ([], 3))
 
+    # test cases for random_finder
+    known_random = ((['CGCCCCTCTCGGGGGTGTTCAGTAAACGGCCA',
+                      'GGGCGAGGTATGTGTAAGTGCCAAGGTGCCAG',
+                      'TAGTACCGAGACCGAAAGAAGTATACAGGCGT',
+                      'TAGATCAAGTTTCAGGTGCACGTCGGTGAACC',
+                      'AATCCACCAGCTCCACGTGCAATGTTGGCCTA'], 8,
+                     ['TCTCGGGG', 'CCAAGGTG', 'TACAGGCG', 'TTCAGGTG',
+                      'TCCACGTG']),
+                    (['AATTGGCACATCATTATCGATAACGATTCGCCGCATTGCC',
+                      'GGTTAACATCGAATAACTGACACCTGCTCTGGCACCGCTC',
+                      'AATTGGCGGCGGTATAGCCAGATAGTGCCAATAATTTCCT',
+                      'GGTTAATGGTGAAGTGTGGGTTATGGGGAAAGGCAGACTG',
+                      'AATTGGACGGCAACTACGGTTACAACGCAGCAAGAATATT',
+                      'GGTTAACTGTTGTTGCTAACACCGTTAAGCGACGGCAACT',
+                      'AATTGGCCAACGTAGGCGCGGCTTGGCATCTCGGTGTGTG',
+                      'GGTTAAAAGGCGCATCTTACTCTTTTCGCTTTCAAAAAAA'], 6,
+                     ['CGATAA', 'GGTTAA', 'GGTATA', 'GGTTAA', 'GGTTAC',
+                      'GGTTAA', 'GGCCAA', 'GGTTAA']),
+                    (['GCACATCATTAAACGATTCGCCGCATTGCCTCGATTAACC',
+                      'TCATAACTGACACCTGCTCTGGCACCGCTCATCCAAGGCC',
+                      'AAGCGGGTATAGCCAGATAGTGCCAATAATTTCCTTAACC',
+                      'AGTCGGTGGTGAAGTGTGGGTTATGGGGAAAGGCAAGGCC',
+                      'AACCGGACGGCAACTACGGTTACAACGCAGCAAGTTAACC',
+                      'AGGCGTCTGTTGTTGCTAACACCGTTAAGCGACGAAGGCC',
+                      'AAGCTTCCAACATCGTCTTGGCATCTCGGTGTGTTTAACC',
+                      'AATTGAACATCTTACTCTTTTCGCTTTCAAAAAAAAGGCC'], 6,
+                     ['TTAACC', 'ATAACT', 'TTAACC', 'TGAAGT', 'TTAACC',
+                      'TTAAGC', 'TTAACC', 'TGAACA']))
+                     
     def test_brute(self):
         """Brute-force motif finder should find exact motifs"""
 
@@ -119,8 +148,23 @@ class Tester(unittest.TestCase):
     def test_greedy_failure(self):
         """Greedy motif finder should error on bad input"""
         
-        for DNAs, pat_len in self.known_greedy_failure:
+        for DNAs, pat_len in self.known_g_or_r_failure:
             self.assertRaises(ValueError, motifs.greedy_finder, DNAs, pat_len)
 
+    def test_random(self):
+        """Random motif finder should find expected motifs"""
+
+        test_num = 1
+        for DNAs, pat_len, correct in self.known_random:
+            result = motifs.random_finder(DNAs, pat_len)
+            self.assertEqual(correct, result, msg=('Test #' + str(test_num)))
+            test_num += 1
+
+    def test_random_failure(self):
+        """Random motif finder should error on bad input"""
+        
+        for DNAs, pat_len in self.known_g_or_r_failure:
+            self.assertRaises(ValueError, motifs.random_finder, DNAs, pat_len)
+            
 if __name__ == '__main__':
     unittest.main()
