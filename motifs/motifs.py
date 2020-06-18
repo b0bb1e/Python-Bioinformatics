@@ -1,3 +1,5 @@
+from random import choice
+
 BASES = ('A', 'C', 'G', 'T')
 
 def ham_dist(one: str, two: str) -> int:
@@ -76,6 +78,32 @@ def get_neighbors(pat: str, dist: int) -> list:
             all_neighbors.append(neighbor)
     return all_neighbors
 
+def ensure_validity(DNAs: list, pat_len: int):
+    """For all motif finder methods, checks params for validity
+
+    Raises appropriate errors if params are invalid
+    
+    :param DNAs: DNA strings with a shared motif
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    """
+    
+    if not DNAs:
+        raise ValueError('Cannot find motifs between non-existant strings')
+    if len(DNAs) < 2:
+        raise ValueError('Must compare at lest 2 strings to find motifs')
+    for DNA in DNAs:
+        if not DNA:
+            raise ValueError('Cannot use empty string as a motif location')
+        for base in DNA:
+            try:
+                BASES.index(base)
+            except:
+                raise ValueError('Non-DNA base "' + base + '" in given string')
+    if pat_len < 1:
+        raise ValueError('Motifs must be at least 1 base long')
+
 def brute_finder(DNAs: list, pat_len: int, dist: int) -> set:
     """Brute-forces all possible motifs
 
@@ -92,20 +120,7 @@ def brute_finder(DNAs: list, pat_len: int, dist: int) -> set:
     :rtype: set (of strs)
     """
 
-    if not DNAs:
-        raise ValueError('Cannot find motifs between non-existant strings')
-    if len(DNAs) < 2:
-        raise ValueError('Must compare at lest 2 strings to find motifs')
-    for DNA in DNAs:
-        if not DNA:
-            raise ValueError('Cannot use empty string as a motif location')
-        for base in DNA:
-            try:
-                BASES.index(base)
-            except:
-                raise ValueError('Non-DNA base "' + base + '" in given string')
-    if pat_len < 1:
-        raise ValueError('Motifs must be at least 1 base long')
+    ensure_validity(DNAs, pat_len)
     motifs = set()
     end_indexes = [(len(DNA) - pat_len + 1) for DNA in DNAs]
     for i in range(end_indexes[0]):
@@ -162,15 +177,7 @@ def median_string(DNAs: list, pat_len: int) -> str:
     :rtype: list
     """
     
-    if not DNAs:
-        raise ValueError('Cannot find medians between non-existant strings')
-    if len(DNAs) < 2:
-        raise ValueError('Must compare at lest 2 strings to find medians')
-    for DNA in DNAs:
-        if not DNA:
-            raise ValueError('Cannot use empty string as a median location')
-    if pat_len < 1:
-        raise ValueError('Medians must be at least 1 base long')
+    ensure_validity(DNAs, pat_len)
     min_dist = len(DNAs) * pat_len + 1
     best_str = ''
     for cur_str in all_DNA_strings(pat_len):
@@ -186,8 +193,7 @@ def median_string(DNAs: list, pat_len: int) -> str:
                     this_dist = dist
             cur_dist += this_dist
         if cur_dist < min_dist:
-            best_str = cur_str
-            min_dist = cur_dist
+            best_str, min_dist = cur_str, cur_dist
     return best_str
 
 def calc_prob(pat: str, profile: list) -> float:
@@ -252,8 +258,7 @@ def best_by_profile(DNA: str, profile: list) -> str:
         cur_str = DNA[i:i + pat_len]
         cur_prob = calc_prob(cur_str, profile)
         if cur_prob > best_prob:
-            best_prob = cur_prob
-            best_str = cur_str
+            best_prob, best_str = cur_prob, cur_str
     return best_str
 
 def get_profile(motifs: list) -> list:
@@ -294,24 +299,27 @@ def consensus_string(profile: list) -> str:
         for row in range(1, 4):
             cur_prob = profile[row][col]
             if cur_prob > best_prob:
-                best_base = BASES[row]
-                best_prob = cur_prob
+                best_base, best_prob = BASES[row], cur_prob
         con += best_base
     return con
         
-def score_motifs(motifs: list) -> int:
+def score_motifs(motifs: list, profile=None) -> int:
     """Scores motifs by their similarities to each other
 
     Lower scores = more similar
 
     :param motifs: the DNA motifs to score
     :type motifs: list (of strs)
+    :param profile: a probability profile, 4 rows (default None)
+    :type profile: list (of lists (of floats))
     :returns: a similarity score
     :rtype: int
     """
     
     score = 0
-    consensus = consensus_string(get_profile(motifs))
+    if not profile:
+        profile = get_profile(motifs)
+    consensus = consensus_string(profile)
     for motif in motifs:
         # score is sum of differences from consensus
         score += ham_dist(motif, consensus)
@@ -330,21 +338,8 @@ def greedy_finder(DNAs: list, pat_len: int) -> list:
     :rtype: list (of strs)
     """
 
-    if not DNAs:
-        raise ValueError('Cannot find motifs between non-existant strings')
+    ensure_validity(DNAs, pat_len)
     num_DNAs = len(DNAs)
-    if num_DNAs < 2:
-        raise ValueError('Must compare at lest 2 strings to find motifs')
-    for DNA in DNAs:
-        if not DNA:
-            raise ValueError('Cannot use empty string as a motif location')
-        for base in DNA:
-            try:
-                BASES.index(base)
-            except:
-                raise ValueError('Non-DNA base "' + base + '" in given string')
-    if pat_len < 1:
-        raise ValueError('Motifs must be at least 1 base long')
     # assume first substrings of each string is best
     best_motifs = [DNA[0:pat_len] for DNA in DNAs]
     best_score = score_motifs(best_motifs)
@@ -357,8 +352,57 @@ def greedy_finder(DNAs: list, pat_len: int) -> list:
         cur_score = score_motifs(cur_motifs)
         # update if necessary
         if cur_score < best_score:
-            best_motifs = cur_motifs
-            best_score = cur_score
+            best_motifs, best_score = cur_motifs, cur_score
+    return best_motifs
+
+def one_random_finder(DNAs: list, pat_len: int) -> list:
+    """Run a randomized algorithm once to find decent motifs
+
+    Moves from motifs -> median -> motifs, saving if better than last
+    and leaving if not
+
+    :param DNAs: DNA strings to search for shared motifs
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    :returns: each string's version of a motif
+    :rtype: list (of strs)
+    """
+    
+    num_DNAs = len(DNAs)
+    best_motifs = []
+    for i in range(num_DNAs):
+        start = choice(range(len(DNAs[i]) - pat_len + 1))
+        best_motifs.append(DNAs[i][start:start + pat_len])
+    best_score = score_motifs(best_motifs)
+    while True:
+        profile = get_profile(best_motifs)
+        cur_motifs = [best_by_profile(DNA, profile) for DNA in DNAs]
+        cur_score = score_motifs(cur_motifs, profile)
+        if cur_score < best_score:
+            best_motifs, best_score = cur_motifs, cur_score
+        else:
+            return best_motifs, best_score
+
+def random_finder(DNAs: list, pat_len: int) -> list:
+    """Use a randomized algorithm to find good motifs
+
+    Runs one_random_finder 10000 times, returning best result
+
+    :param DNAs: DNA strings to search for shared motifs
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    :returns: each string's version of a motif
+    :rtype: list (of strs)
+    """
+
+    ensure_validity(DNAs, pat_len)
+    best_motifs, best_score = one_random_finder(DNAs, pat_len)
+    for i in range(999):
+        cur_motifs, cur_score = one_random_finder(DNAs, pat_len)
+        if cur_score < best_score:
+            best_motifs, best_score = cur_motifs, cur_score
     return best_motifs
 
 if __name__ == '__main__':
@@ -367,5 +411,5 @@ if __name__ == '__main__':
         DNAs = []
         for line in data:
             DNAs.append(line.rstrip())
-    for motif in greedy_finder(DNAs, pat_len):
+    for motif in random_finder(DNAs, pat_len):
         print(motif)
