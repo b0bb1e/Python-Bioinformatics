@@ -1,4 +1,4 @@
-from random import choice
+from random import choice, choices
 
 BASES = ('A', 'C', 'G', 'T')
 
@@ -405,11 +405,68 @@ def random_finder(DNAs: list, pat_len: int) -> list:
             best_motifs, best_score = cur_motifs, cur_score
     return best_motifs
 
+def one_sampler_finder(DNAs: list, pat_len: int) -> list:
+    """Run a randomized sampler algorithm once to find decent motifs
+
+    Moves from motifs -> median -> motifs, saving if better than last
+
+    :param DNAs: DNA strings to search for shared motifs
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    :returns: each string's version of a motif
+    :rtype: list (of strs)
+    """
+    
+    num_DNAs = len(DNAs)
+    best_motifs = []
+    for i in range(num_DNAs):
+        start = choice(range(len(DNAs[i]) - pat_len + 1))
+        best_motifs.append(DNAs[i][start:start + pat_len])
+    best_score = score_motifs(best_motifs)
+    cur_motifs = list(best_motifs)
+    for i in range(2500):
+        # randomely remove one motif
+        change = choice(range(num_DNAs))
+        del cur_motifs[change]
+        # build profile sans motif
+        profile = get_profile(cur_motifs)
+        # choose a new motif for that DNA string with weighted probability
+        weighted_probs = [calc_prob(DNAs[change][i:i + pat_len], profile)
+                          for i in range(len(DNAs[change]) - pat_len + 1)]        start = choices(range(len(weighted_probs)), weights=weighted_probs)[0]
+        # insert back in and re-calcualte
+        cur_motifs.insert(change, DNAs[change][start:start + pat_len])
+        cur_score = score_motifs(cur_motifs, profile)
+        if cur_score < best_score:
+            best_motifs, best_score = cur_motifs, cur_score
+    return best_motifs, best_score
+
+def sampler_finder(DNAs: list, pat_len: int) -> list:
+    """Use a randomized sampler algorithm to find good motifs
+
+    Runs one_sampler_finder 10000 times, returning best result
+
+    :param DNAs: DNA strings to search for shared motifs
+    :type DNAs: list (of strs)
+    :param pat_len: the length of motifs to search for
+    :type pat_len: int
+    :returns: each string's version of a motif
+    :rtype: list (of strs)
+    """
+
+    ensure_validity(DNAs, pat_len)
+    best_motifs, best_score = one_sampler_finder(DNAs, pat_len)
+    for i in range(19):
+        cur_motifs, cur_score = one_sampler_finder(DNAs, pat_len)
+        if cur_score < best_score:
+            best_motifs, best_score = cur_motifs, cur_score
+    return best_motifs
+
 if __name__ == '__main__':
     with open('data.txt') as data:
-        pat_len, num_DNAs = [int(x) for x in data.readline().split()]
+        pat_len, _, __ = [int(x) for x in data.readline().split()]
         DNAs = []
         for line in data:
             DNAs.append(line.rstrip())
-    for motif in random_finder(DNAs, pat_len):
+    for motif in sampler_finder(DNAs, pat_len):
         print(motif)
