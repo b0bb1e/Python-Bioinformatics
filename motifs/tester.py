@@ -14,38 +14,85 @@ class Tester(unittest.TestCase):
                    (['AAAAA', 'AAAAA', 'AACAA'], 3, 0, set()),
                    (['AACAA', 'AAAAA', 'AACAA'], 3, 0, set()))
 
+    known_brute_failure = ((['ACGT', 'ACGR', 'ACGT'], 3, 0),
+                           (['YACG', 'ACGT', 'ACGT'], 3, 0),
+                           (['ACGT', 'ACGT', 'ACGT'], 3, -1),
+                           (['ACGT', 'ACGT', 'ACGT'], 0, 0),
+                           (['ACGT', '', 'ACGT'], 3, 0),
+                           ([''], 3, 0),
+                           (['ACGT'], 3, 0),
+                           ([], 3, 0))
+
     # test cases for median_string
     known_median = ((['AAATTGACGCAT', 'GACGACCACGTT', 'CGTCAGCGCCTG',
                       'GCTGAGCACCGG', 'AGTACGGGACAG'], 3, {'ACG', 'GAC'}),
                     (['ACGT', 'ACGT', 'ACGT'], 3, {'ACG', 'CGT'}),
                     (['ATA', 'ACA', 'AGA', 'AAT', 'AAC'], 3, {'AAA'}))
 
+    known_median_failure = ((['ACGT', 'ACGT', 'ACGT'], 0),
+                            ([], 3),
+                            (['ACGT', 'ACGT', ''], 3),
+                            (['ACGT'], 3))
+
+    # test cases for greedy_finder
+    known_greedy = ((['GGCGTTCAGGCA', 'AAGAATCAGTCA', 'CAAGGAGTTCGC',
+                      'CACGTCAATCAC', 'CAATAATATTCG'], 3,
+                     ['TTC', 'ATC', 'TTC', 'ATC', 'TTC']),
+                    (['AGGCGGCACATCATTATCGATAACGATTCGCCGCATTGCC',
+                      'ATCCGTCATCGAATAACTGACACCTGCTCTGGCACCGCTC',
+                      'AAGCGTCGGCGGTATAGCCAGATAGTGCCAATAATTTCCT',
+                      'AGTCGGTGGTGAAGTGTGGGTTATGGGGAAAGGCAGACTG',
+                      'AACCGGACGGCAACTACGGTTACAACGCAGCAAGAATATT',
+                      'AGGCGTCTGTTGTTGCTAACACCGTTAAGCGACGGCAACT',
+                      'AAGCGGCCAACGTAGGCGCGGCTTGGCATCTCGGTGTGTG',
+                      'AATTGAAAGGCGCATCTTACTCTTTTCGCTTTCAAAAAAA'], 5,
+                     ['AGGCG', 'ATCCG', 'AAGCG', 'AGTCG', 'AACCG', 'AGGCG',
+                      'AGGCG', 'AGGCG']),
+                    (['GCACATCATTAAACGATTCGCCGCATTGCCTCGATAGGCG',
+                      'TCATAACTGACACCTGCTCTGGCACCGCTCATCCGTCGAA',
+                      'AAGCGGGTATAGCCAGATAGTGCCAATAATTTCCTTCGGC',
+                      'AGTCGGTGGTGAAGTGTGGGTTATGGGGAAAGGCAGACTG',
+                      'AACCGGACGGCAACTACGGTTACAACGCAGCAAGAATATT',
+                      'AGGCGTCTGTTGTTGCTAACACCGTTAAGCGACGGCAACT',
+                      'AAGCTTCCAACATCGTCTTGGCATCTCGGTGTGTGAGGCG',
+                      'AATTGAACATCTTACTCTTTTCGCTTTCAAAAAAAAGGCG'], 5,
+                     ['AGGCG', 'TGGCA', 'AAGCG', 'AGGCA', 'CGGCA', 'AGGCG',
+                      'AGGCG', 'AGGCG']),
+                    (['GCACATCATTATCGATAACGATTCATTGCCAGGCGGCCGC',
+                      'TCATCGAATAACTGACACCTGCTCTGGCTCATCCGACCGC',
+                      'TCGGCGGTATAGCCAGATAGTGCCAATAATTTCCTAAGCG',
+                      'GTGGTGAAGTGTGGGTTATGGGGAAAGGCAGACTGAGTCG',
+                      'GACGGCAACTACGGTTACAACGCAGCAAGAATATTAACCG',
+                      'TCTGTTGTTGCTAACACCGTTAAGCGACGGCAACTAGGCG',
+                      'GCCAACGTAGGCGCGGCTTGGCATCTCGGTGTGTGAAGCG',
+                      'AAAGGCGCATCTTACTCTTTTCGCTTTCAAAAAAAAATTG'], 5,
+                     ['GGCGG', 'GGCTC', 'GGCGG', 'GGCAG', 'GACGG', 'GACGG',
+                      'GGCGC', 'GGCGC']))
+
+
+    known_greedy_failure = ((['GCCYAA', 'GGCCTG', 'AACCTA', 'TTCCTT'], 3),
+                            (['GCCCAA', 'RGCCTG', 'AACCTA', 'TTCCTT'], 3),
+                            (['GCCCAA', 'GGCCTG', 'AACCTA', 'TTCCTT'], 0),
+                            (['GCCCAA', 'GGCCTG', '', 'TTCCTT'], 3),
+                            (['GCCCAA'], 3),
+                            ([''], 3),
+                            ([], 3))
+
     def test_brute(self):
         """Brute-force motif finder should find exact motifs"""
 
+        test_num = 1
         for DNAs, pat_len, dist, correct in self.known_brute:
             result = motifs.brute_finder(DNAs, pat_len, dist)
-            self.assertEqual(correct, result)
+            self.assertEqual(correct, result, msg=('Test #' + str(test_num)))
+            test_num += 1
 
     def test_brute_failure(self):
         """Brute-force motif finder should error on bad input"""
-        
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['ACGT', 'ACGR', 'ACGT'], 3, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['YACG', 'ACGT', 'ACGT'], 3, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['ACGT', 'ACGT', 'ACGT'], 3, -1)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['ACGT', 'ACGT', 'ACGT'], 0, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['ACGT', '', 'ACGT'], 3, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          [''], 3, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          ['ACGT'], 3, 0)
-        self.assertRaises(ValueError, motifs.brute_finder,
-                          [], 3, 0)
+
+        for DNAs, pat_len, dist in self.known_brute_failure:
+            self.assertRaises(ValueError, motifs.brute_finder,
+                              DNAs, pat_len, dist)
 
     def test_median(self):
         """Median string finder should find a valid best string"""
@@ -57,13 +104,23 @@ class Tester(unittest.TestCase):
     def test_median_failure(self):
         """Median string finder should error on bad input"""
 
-        self.assertRaises(ValueError, motifs.median_string,
-                          ['ACGT', 'ACGT', 'ACGT'], 0)
-        self.assertRaises(ValueError, motifs.median_string, [], 3)
-        self.assertRaises(ValueError, motifs.median_string,
-                          ['ACGT', 'ACGT', ''], 3)
-        self.assertRaises(ValueError, motifs.median_string,
-                          ['ACGT'], 3)
+        for DNAs, pat_len in self.known_median_failure:
+            self.assertRaises(ValueError, motifs.median_string, DNAs, pat_len)
+
+    def test_greedy(self):
+        """Greedy motif finder should find expected motifs"""
+
+        test_num = 1
+        for DNAs, pat_len, correct in self.known_greedy:
+            result = motifs.greedy_finder(DNAs, pat_len)
+            self.assertEqual(correct, result, msg=('Test #' + str(test_num)))
+            test_num += 1
+
+    def test_greedy_failure(self):
+        """Greedy motif finder should error on bad input"""
+        
+        for DNAs, pat_len in self.known_greedy_failure:
+            self.assertRaises(ValueError, motifs.greedy_finder, DNAs, pat_len)
 
 if __name__ == '__main__':
     unittest.main()
