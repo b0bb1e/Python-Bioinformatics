@@ -19,10 +19,29 @@ def comp(DNA: str, pat_len: int) -> list:
 
     return sorted([DNA[i:i + pat_len] for i in range(DNA_len - pat_len + 1)])
 
+def path_to_DNA(path: list) -> str:
+    """Convert a path of substrings to a condensed string
+
+    :param path: the ordered path of substrings
+    :type path: list (of strs)
+    :returns: the overall string
+    :rtype: str
+    """
+
+    if not path:
+        raise ValueError('Cannot convert nonexistant path')
+    sub_len = len(path[0])
+    for sub_str in path:
+        if len(sub_str) != sub_len:
+            raise ValueError('All substrings in path must be the same length')
+    DNA = path[0][:-1]
+    for sub_str in path:
+        DNA += sub_str[-1]
+    return DNA
+
 if __name__ == '__main__':
     with open('data.txt') as data:
-        pat_len = int(data.readline().rstrip())
-        DNA = data.readline().rstrip()
-    with open('output.txt', mode='w') as output:
-        for sub_str in comp(DNA, pat_len):
-            output.write(sub_str + '\n')
+        path = []
+        for line in data:
+            path.append(line.rstrip())
+    print(path_to_DNA(path))
