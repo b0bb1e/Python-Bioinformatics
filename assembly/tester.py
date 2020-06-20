@@ -13,10 +13,18 @@ class Tester(unittest.TestCase):
                          'ACCGAAGCT'),)
 
     known_path_to_DNA_failure = (['ACCGA', 'CCGAA', 'CGAAG', 'GAAGC', ''],
-                                 [],
-                                 ['', 'CCGAA', 'CGAAG', 'GAAGC', 'AAGCT'],
+                                 [], ['', 'CCGAA', 'CGAAG', 'GAAGC', 'AAGCT'],
                                  ['ACCA', 'CCGAA', 'CGAAG', 'GAAGC'],
                                  ['ACCGA', 'CCGAA', 'CGAAG', 'GA'])
+
+    known_overlap = ((['ATGCG', 'GCATG', 'CATGC', 'AGGCA', 'GGCAT'],
+                      {'AGGCA': ['GGCAT'], 'CATGC': ['ATGCG'],
+                       'GCATG': ['CATGC'], 'GGCAT': ['GCATG']}),)
+
+    known_overlap_failure = (['ACCGA', 'CCGAA', 'CGAAG', 'GAAGC', ''],
+                             [], ['', 'CCGAA', 'CGAAG', 'GAAGC', 'AAGCT'],
+                             ['ACCA', 'CCGAA', 'CGAAG', 'GAAGC'],
+                             ['ACCGA', 'CCGAA', 'CGAAG', 'GA'])
 
     def test_comp(self):
         """Composition of a string should be found & sorted correctly"""
@@ -43,6 +51,19 @@ class Tester(unittest.TestCase):
 
         for path in self.known_path_to_DNA_failure:
             self.assertRaises(ValueError, assembler.path_to_DNA, path)
+
+    def test_overlap(self):
+        """Overlap graph should be properly constructed"""
+
+        for pats, overlap in self.known_overlap:
+            result = assembler.overlap_graph(pats)
+            self.assertEqual(overlap, result)
+
+    def test_overlap_failure(self):
+        """Overlap graph constructor should error on bad input"""
+
+        for pats in self.known_overlap_failure:
+            self.assertRaises(ValueError, assembler.overlap_graph, pats)
 
 if __name__ == '__main__':
     unittest.main()
