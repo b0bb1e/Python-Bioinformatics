@@ -27,6 +27,22 @@ class Tester(unittest.TestCase):
                             'GAG': ['AGG'], 'GGA': ['GAG'],
                             'GGG': ['GGG', 'GGA']}),)
 
+    known_graph_to_cycle = (({'0': ['3'], '1': ['0'], '2': ['1', '6'],
+                              '3': ['2'], '4': ['2'], '5': ['4'],
+                              '6': ['5', '8'], '7': ['9'], '8': ['7'],
+                              '9': ['6']},
+                             ['3', '2', '6', '8', '7', '9', '6', '5', '4', '2',
+                              '1', '0', '3']),)
+
+    known_graph_to_path = (({'0': ['2'], '1': ['3'], '2': ['1'],
+                             '3': ['0', '4'], '6': ['3', '7'], '7': ['8'],
+                             '8': ['9'], '9': ['6']},
+                            ['6', '7', '8', '9', '6', '3', '0', '2', '1', '3',
+                             '4']),)
+
+    known_assemble = ((['CTTA', 'ACCA', 'TACC', 'GGCT', 'GCTT', 'TTAC'],
+                       'GGCTTACCA'),)
+
     def test_comp(self):
         """Composition of a string should be found & sorted correctly"""
 
@@ -78,6 +94,33 @@ class Tester(unittest.TestCase):
 
         for pats in self.known_pattern_failure:
             self.assertRaises(ValueError, assembler.self_overlap_graph, pats)
+
+    def test_graph_to_cycle(self):
+        """Eulerian cycle maker should construct cycles properly"""
+
+        for graph, cycle in self.known_graph_to_cycle:
+            result = assembler.graph_to_cycle(graph)
+            self.assertEqual(cycle, result)
+
+    def test_graph_to_path(self):
+        """Eulerian path maker should construct paths properly"""
+
+        for graph, path in self.known_graph_to_path:
+            result = assembler.graph_to_path(graph)
+            self.assertEqual(path, result)
+
+    def test_assemble(self):
+        """DNA assembler should assemble correctly"""
+
+        for pats, DNA in self.known_assemble:
+            result = assembler.assemble(pats)
+            self.assertEqual(DNA, result)
+
+    def test_assemble_failure(self):
+        """DNA assembler should error on bad input"""
+
+        for pats in self.known_pattern_failure:
+            self.assertRaises(ValueError, assembler.assemble, pats)
 
 if __name__ == '__main__':
     unittest.main()
