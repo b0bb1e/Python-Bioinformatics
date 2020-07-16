@@ -43,6 +43,12 @@ class Tester(unittest.TestCase):
     known_assemble = ((['CTTA', 'ACCA', 'TACC', 'GGCT', 'GCTT', 'TTAC'],
                        'GGCTTACCA'),)
 
+    known_assemble_read_pairs = (([('GAGA', 'TTGA'), ('TCGT', 'GATG'),
+                                   ('CGTG', 'ATGT'), ('TGGT', 'TGAG'),
+                                   ('GTGA', 'TGTT'), ('GTGG', 'GTGA'),
+                                   ('TGAG', 'GTTG'), ('GGTC', 'GAGA'),
+                                   ('GTCG', 'AGAT')], 2, 'GTGGTCGTGAGATGTTGA'),)
+    
     def test_comp(self):
         """Composition of a string should be found & sorted correctly"""
 
@@ -105,6 +111,7 @@ class Tester(unittest.TestCase):
     def test_graph_to_path(self):
         """Eulerian path maker should construct paths properly"""
 
+
         for graph, path in self.known_graph_to_path:
             result = assembler.graph_to_path(graph)
             self.assertEqual(path, result)
@@ -121,6 +128,13 @@ class Tester(unittest.TestCase):
 
         for pats in self.known_pattern_failure:
             self.assertRaises(ValueError, assembler.assemble, pats)
+
+    def test_assemble_read_pairs(self):
+        """DNA read-pair assembler should assemble correctly"""
+
+        for pairs, dist, DNA in self.known_assemble_read_pairs:
+            result = assembler.assemble_read_pairs(pairs, dist)
+            self.assertEqual(DNA, result)
 
 if __name__ == '__main__':
     unittest.main()
