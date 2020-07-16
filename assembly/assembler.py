@@ -1,3 +1,6 @@
+import random
+import copy
+
 def comp(DNA: str, pat_len: int) -> list:
     """Sort all substrings of pat_len length
 
@@ -76,7 +79,7 @@ def overlap_graph(pats: list) -> dict:
 def self_overlap_graph(pats: list) -> dict:
     """Construct a self-overlap graph for a group of patterns
 
-    The tailess bit of a sting self-overlaps with the headless bit
+    The tailess bit of a string self-overlaps with the headless bit
     
     :param pats: a group of substrings
     :type pats: list (of strs)
@@ -117,13 +120,13 @@ def new_cycle(graph: dict, old_cycle: list=None) -> list:
         except NameError:
             raise ValueError('Graph has a closed cycle')
     else:
-        cur = next(iter(graph.keys()))
+        cur = random.choice(list(graph))
         cycle = []
 
     # while there are unused edges from the current node
     while cur in graph:
         # use an edge
-        cycle.append(graph[cur].pop(-1))
+        cycle.append(graph[cur].pop(random.randrange(len(graph[cur]))))
         # delete nodes from graph if no edges are left
         if not graph[cur]:
             del graph[cur]
@@ -208,6 +211,90 @@ def assemble(pats: list) -> str:
     path = graph_to_path(graph)
     return path_to_DNA(path)
 
+def verify_pairs(pairs: list):
+    """Verify that a group of pattens is valid; raises errors
+
+    :param pats: a group of substring pairs
+    :type pats: list (of tuples (of strs))
+    :raises: ValueError (if the pairs are invalid)
+    """
+
+    if not pairs:
+        raise ValueError('Cannot convert nonexistant pairs')
+    pat_len = len(pairs[0][0])
+    for pair in pairs:
+        if len(pair) != 2:
+            raise ValueError('All patterns must be paired')
+        if len(pair[0]) != pat_len or len(pair[1]) != pat_len:
+            raise ValueError('All patterns must be the same length')
+
+def overlap_graph_read_pairs(pairs: list) -> dict:
+    """Construct a self-overlap graph for a group of read-pairs
+
+    The tailess bit of a string self-overlaps with the headless bit
+    
+    :param pairs: a group of substring pairs
+    :type pats: list (of tuples (of strs))
+    :returns: the overlap graph in dictionary form
+    :rtype: dict (tuples (of strs): lists (of tuples (of strs)))
+    """
+
+    verify_pairs(pairs)
+    graph = {}
+    for pair in pairs:
+        start = (pair[0][:-1], pair[1][:-1])
+        if not start in graph:
+            graph[start] = []
+        graph[start].append((pair[0][1:], pair[1][1:]))
+    return graph
+
+def path_to_DNA_read_pairs(path: list, dist: int) -> str:
+    """Convert a path of substrings to a condensed string
+
+    :param path: the ordered path of substring pairs
+    :type path: list (of tuples (of strs))
+    :param dist: the distance between the read-pairs
+    :type dist: int
+    :returns: the overall string
+    :rtype: str
+    :raises: ValueError if path is invalid
+    """
+
+    prefix = path[0][0][:-1]
+    suffix = path[0][1][:-1]
+    for pair in path:
+        prefix += pair[0][-1]
+        suffix += pair[1][-1]
+    prefix_len = len(prefix)
+    pat_len = len(path[0][0])
+    for i in range(dist + pat_len + 1, prefix_len):
+        if prefix[i] != suffix[i - dist - pat_len - 1]:
+            raise ValueError('Path not compatible')
+    return prefix + suffix[prefix_len - dist - pat_len -1:]
+
+def assemble_read_pairs(pairs: list, dist: int) -> str:
+    """Assemble a string from substrings
+
+    :param pairs: a group of substrings pairs
+    :type pats: list (of tuples (of strs))
+    :param dist: the distance between the read-pairs
+    :type dist: int
+    :returns: the assembled string
+    :rtype: str
+    """
+
+    verify_pairs(pairs)
+    graph = overlap_graph_read_pairs(pairs)
+    saved_graph = copy.deepcopy(graph)
+    while True:
+        try:
+            path = graph_to_path(graph)
+            DNA = path_to_DNA_read_pairs(path, dist)
+            break
+        except ValueError:
+            graph = copy.deepcopy(saved_graph)
+    return DNA
+
 def all_binary(bin_len: int) -> list:
     """Find all binary strings of a certain length
 
@@ -243,4 +330,10 @@ def universal_binary(bin_len: int) -> str:
     return path_to_DNA(cycle)
 
 if __name__ == '__main__':
-    print(universal_binary(9))
+    with open('data.txt') as data:
+        k, dist = [int(x) for x in data.readline().split()]
+        pairs = []
+        for line in data:
+            pairs.append((line[:k], line[k + 1:k + k + 1]))
+    with open('output.txt', mode='w') as output:
+        output.write(assemble_read_pairs(pairs, dist))
