@@ -47,8 +47,9 @@ def ideal_spectrum(peptide: list, cyclic: bool) -> list:
         spect += [total_mass - (cum_mass[j] - cum_mass[i])
                   for i in range(1, mass_len)
                   for j in range(i + 1, mass_len - 1)]
-        
-    return sorted(spect)
+
+    spect.sort()
+    return spect
 
 def count_peptides_with_mass(mass: int, pre_computed: dict={}) -> int:
     """Counts the number of peptides with a given mass
@@ -75,34 +76,22 @@ def count_peptides_with_mass(mass: int, pre_computed: dict={}) -> int:
         pre_computed[mass] = count
         return count
 
-def expand(peptides: list) -> list:
+def expand(peptides: list, masses: list=amino_masses) -> list:
     """Expands each peptide in in a list by all possible next-masses
 
     :param peptides: the peptides to expand
     :type peptides: list (of lists (of ints))
+    :param masses: the list of masses to expand by (default amino_masses)
+    :type masses: list (of ints)
     :returns: the expanded list
     :rtype: list (of lists (of ints))
     """
     
     expanded = []
     for peptide in peptides:
-        for mass in amino_masses:
+        for mass in masses:
             expanded.append(peptide + [mass])
     return expanded
-
-def sum_list(nums: list) -> int:
-    """Sums a list of ints
-
-    :param nums: the list to sum elements of
-    :type nums: list (of ints)
-    :returns: the sum of all of nums' elements
-    :rtype: int
-    """
-    
-    count = 0
-    for num in nums:
-        count += num
-    return count
 
 def contains(big: list, small: list) -> bool:
     """Determines if one list is a superset of another
@@ -124,7 +113,7 @@ def contains(big: list, small: list) -> bool:
 def sequence(spect: list) -> list:
     """Determines possible amino acid compositions given an ideal spectrum
 
-    :param spect: the idea cyclic spectrum of the peptide
+    :param spect: the ideal cyclic spectrum of the peptide
     :type spect: list (of ints)
     :returns: all possible peptides as a lists of masses
     :rtype: list (of lists (of ints))
@@ -139,7 +128,7 @@ def sequence(spect: list) -> list:
         # iterate over list backwards for easier removal
         for i in range(len(all_peptides) - 1, -1, -1):
             # if masses match, this is a possible end-answer
-            if sum_list(all_peptides[i]) == total_mass:
+            if sum(all_peptides[i]) == total_mass:
                 # only check cyclic spectrum if peptide is possible answer
                 if ideal_spectrum(all_peptides[i], True) == spect:
                     good_peptides.append(all_peptides[i])
@@ -150,8 +139,152 @@ def sequence(spect: list) -> list:
                 del all_peptides[i]
     return good_peptides
 
+def score_amino(peptide: list, spect: list, cyclic: bool):
+    """Scores a cyclic peptide against a spectrum
+
+    A higher score indicates more similarity due to more shared massses
+
+    :param peptide: the peptide (with 1-char amino acid codes in order)
+    :type peptide: str
+    :param spect: a cyclic spectrum to score against
+    :type spect: list (of ints)
+    :param cyclic: whether to deal with peptides as cyclic or not
+    :type cyclic: bool
+    :returns: the number of matching masses between peptide & spect
+    :rtype: int
+    """
+
+    masses = [amino_to_weight[amino] for amino in peptide]
+    return score(masses, spect, cyclic)
+
+def score(peptide: list, spect: list, cyclic: bool):
+    """Scores a cyclic peptide against a spectrum
+
+    A higher score indicates more similarity due to more shared massses
+
+    :param peptide: the peptide to score as a list of masses
+    :type peptide: list (of ints)
+    :param spect: a cyclic spectrum to score against
+    :type spect: list (of ints)
+    :param cyclic: whether to deal with peptides as cyclic or not
+    :type cyclic: bool
+    :returns: the number of matching masses between peptide & spect
+    :rtype: int
+    """
+
+    matches = Counter(ideal_spectrum(peptide, cyclic)) & Counter(spect)
+    return sum(matches.values())
+
+def trim(leaderboard: list, spect: list, keep: int) -> list:
+    """Trims a leaderboard of peptides to top-keep-plus-ties
+
+    :param leaderboard: the peptide leaderboard to trim, with peptides
+                        as lists of masses
+    :type leaderboard: list (of lists (of ints))
+    :param keep: the minimum number of peptides to keep (if no ties)
+    :param spect: a cyclic spectrum to score against
+    :type spect: list (of ints)
+    :type keep: int
+    :returns: the trimmed leaderboard
+    :rtype: list (of lists (of ints))
+    """
+
+    if len(leaderboard) <= keep:
+        return leaderboard
+
+    score_count = {}
+    all_scores = []
+    for peptide in leaderboard:
+        cur_score = score(peptide, spect, False)
+        if cur_score in score_count:
+            score_count[cur_score].append(peptide)
+        else:
+            score_count[cur_score] = [peptide]
+            all_scores.append(cur_score)
+
+    all_scores.sort(reverse=True)
+    trimmed = []
+    for cur_score in all_scores:
+        trimmed += score_count[cur_score]
+        if len(trimmed) >= keep:
+            break
+    return trimmed
+
+def top_diffs(spect: list, num_acids: int) -> list:
+    spect.sort()
+    spect_len = len(spect)
+    diffs = [spect[i] - spect[j] for i in range(1, spect_len)
+             for j in range(i - 1, -1, -1)]
+    diff_count = Counter(diffs)
+    if 0 in diff_count:
+        del diff_count[0]
+    tops = diff_count.most_common()
+    acids = []
+    last_count = 0
+    for mass, count in tops:
+        if len(acids) >= num_acids and count < last_count:
+            break
+        if 57 <= mass <= 200:
+            acids.append(mass)
+            last_count = count
+    return acids
+    
+def leaderboard_sequence(spect: list, keep: int,
+                         masses: list=amino_masses) -> list:
+    """Determines the most-matching peptide given a spectrum
+
+    :param spect: an observed, perhaps non-ideal, spectrum
+    :type spect: list (of ints)
+    :param keep: the number of peptides to keep after each trim
+    :type keep: int
+    :param masses: the list of masses to expand by (default amino_masses)
+    :type masses: list (of ints)
+    :returns: the most-matching peptide
+    :rtype: list (of ints)
+    """
+    print(len(spect))
+    leaderboard = [[]]
+    best_peptide = []
+    best_score = -1
+    total_mass = spect[len(spect) - 1]
+    while leaderboard:
+        leaderboard = expand(leaderboard, masses)
+        # iterate over list backwards for easier removal
+        for i in range(len(leaderboard) - 1, -1, -1):
+            cur_mass = sum(leaderboard[i])
+            if cur_mass == total_mass:
+                cur_score = score(leaderboard[i], spect, True)
+                #cur_score -= score(leaderboard[i], spect, False)
+                
+                if cur_score >= best_score:
+                    print(leaderboard[i], cur_score)
+                    best_peptide = leaderboard[i]
+                    best_score = cur_score
+                del leaderboard[i]
+            elif cur_mass > total_mass:
+                del leaderboard[i]
+        leaderboard = trim(leaderboard, spect, keep)
+    return best_peptide
+
+def convolution_sequence(spect: list, keep: int, num_acids: int) -> list:
+    """Determines the most-matching peptide given a spectrum
+
+    Amino acid masses are taken from a convolution
+
+    :param spect: an observed, perhaps non-ideal, spectrum
+    :type spect: list (of ints)
+    :param keep: the number of peptides to keep after each trim
+    :type keep: int
+    :param num_acids: the number of acids to keep from the convolution
+    :returns: the most-matching peptide
+    :rtype: list (of ints)
+    """
+
+    return leaderboard_sequence(spect, keep, top_diffs(spect, num_acids))
+
 if __name__ == '__main__':
     with open('data.txt') as data:
+        num_acids = int(data.readline().rstrip())
+        keep = int(data.readline().rstrip())
         spect = [int(x) for x in data.readline().rstrip().split()]
-    for peptide in sequence(spect):
-        print(*peptide, sep='-', end=' ')
+    print(*convolution_sequence(spect, keep, num_acids), sep='-')
