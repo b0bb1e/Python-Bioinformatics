@@ -1,5 +1,5 @@
 from reference import *
-from collections import Counter
+from collections import Counter, defaultdict
 
 def ideal_spectrum_amino(peptide: str, cyclic: bool) -> list:
     """Finds the ideal spectrum of a peptide
@@ -172,6 +172,8 @@ def score(peptide: list, spect: list, cyclic: bool):
     :rtype: int
     """
 
+    pep_spect = ideal_spectrum(peptide, cyclic)
+    
     matches = Counter(ideal_spectrum(peptide, cyclic)) & Counter(spect)
     return sum(matches.values())
 
@@ -192,38 +194,45 @@ def trim(leaderboard: list, spect: list, keep: int) -> list:
     if len(leaderboard) <= keep:
         return leaderboard
 
-    score_count = {}
-    all_scores = []
+    # map of score -> list of peptides with score
+    score_count = defaultdict(list)
     for peptide in leaderboard:
-        cur_score = score(peptide, spect, False)
-        if cur_score in score_count:
-            score_count[cur_score].append(peptide)
-        else:
-            score_count[cur_score] = [peptide]
-            all_scores.append(cur_score)
+        score_count[score(peptide, spect, False)].append(peptide)
 
-    all_scores.sort(reverse=True)
     trimmed = []
-    for cur_score in all_scores:
+    for cur_score in sorted(list(score_count.keys()), reverse=True):
+        # keep all with this score, leave if over limit
         trimmed += score_count[cur_score]
         if len(trimmed) >= keep:
             break
     return trimmed
 
 def top_diffs(spect: list, num_acids: int) -> list:
+    """Finds at least num_acids top differences in [57, 200]
+
+    Accepts ties
+
+    :param spect: a cyclic spectrum to find differences in
+    :type spect: list (of ints)
+    :type keep: int
+    :returns: the trimmed leaderboard
+    :rtype: list (of lists (of ints))
+    """
+
+    # must be sorted & start with 0
     spect.sort()
-    spect_len = len(spect)
-    diffs = [spect[i] - spect[j] for i in range(1, spect_len)
+    if spect[0] != 0:
+        spect.insert(0, 0)
+    diffs = [spect[i] - spect[j] for i in range(1, len(spect))
              for j in range(i - 1, -1, -1)]
-    diff_count = Counter(diffs)
-    if 0 in diff_count:
-        del diff_count[0]
-    tops = diff_count.most_common()
+    
     acids = []
     last_count = 0
-    for mass, count in tops:
+    for mass, count in Counter(diffs).most_common():
+        # leave if over min AND not tying min
         if len(acids) >= num_acids and count < last_count:
             break
+        # restricted weight for amino acid masses
         if 57 <= mass <= 200:
             acids.append(mass)
             last_count = count
@@ -242,7 +251,7 @@ def leaderboard_sequence(spect: list, keep: int,
     :returns: the most-matching peptide
     :rtype: list (of ints)
     """
-    print(len(spect))
+
     leaderboard = [[]]
     best_peptide = []
     best_score = -1
@@ -254,10 +263,7 @@ def leaderboard_sequence(spect: list, keep: int,
             cur_mass = sum(leaderboard[i])
             if cur_mass == total_mass:
                 cur_score = score(leaderboard[i], spect, True)
-                #cur_score -= score(leaderboard[i], spect, False)
-                
-                if cur_score >= best_score:
-                    print(leaderboard[i], cur_score)
+                if cur_score > best_score:
                     best_peptide = leaderboard[i]
                     best_score = cur_score
                 del leaderboard[i]
