@@ -58,17 +58,29 @@ def max_length(down: list, right: list) -> int:
 
     return max_weights[height - 1][width - 1]
 
-def build_string(backtrack: list, cur_pos, one: str) -> str:
+def build_string(backtrack: list, one: str) -> str:
     """Builds a string based on a backtarack matrix
 
     :param backtrack: the backtrack matrix
     :type backtrack: list (of lists (of strs))
-    :param cur_pos: 
-    :param one: one of the strings
+    :param one: the string along the top of the matrix
     :type one: str
     :returns: the string as backtracked
     :rtype: str
     """
+
+    row, col = len(backtrack) - 1, len(backtrack[0]) - 1
+    built = ""
+    while row != 0 or col != 0:
+        if backtrack[row][col] == 'd':
+            row -= 1
+        elif backtrack[row][col] == 'r':
+            col -= 1
+        elif backtrack[row][col] == 'b':
+            built = one[col - 1] + built
+            row -= 1
+            col -= 1
+    return built
     
 
 def lcs(one: str, two: str) -> str:
@@ -86,8 +98,8 @@ def lcs(one: str, two: str) -> str:
     height = len(two) + 1
     weights = [[0] for i in range(height)]
     backtrack = [['d'] for i in range(height)]
-    weights[0].append([0 for i in range(width - 1)])
-    backtrack[0].append(['r' for i in range(width - 1)])
+    weights[0] += [0 for i in range(width - 1)]
+    backtrack[0] += ['r' for i in range(width - 1)]
 
     for row in range(1, height):
         for col in range(1, width):
@@ -100,17 +112,11 @@ def lcs(one: str, two: str) -> str:
                 backtrack[row][col] = 'r'
             elif if_diag > weights[row][col]:
                 weights[row][col] = if_diag
-                backtrack[row][col] = 'd'
-    return build_string(backtrack, one, two)
+                backtrack[row][col] = 'b'
+    return build_string(backtrack, one)
                      
 if __name__ == '__main__':
     with open('data.txt') as data:
-        n, m = [int(x) for x in data.readline().rstrip().split()]
-        down = []
-        for i in range(n):
-            down.append([int(x) for x in data.readline().rstrip().split()])
-        data.readline()
-        right = []
-        for i in range(n + 1):
-            right.append([int(x) for x in data.readline().rstrip().split()])
-    print(max_length(down, right))
+        one = data.readline().rstrip()
+        two = data.readline().rstrip()
+    print(lcs(one, two))
