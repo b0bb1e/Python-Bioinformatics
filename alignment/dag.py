@@ -80,9 +80,11 @@ class DAG:
         :returns: information about all nodes in the graph
         :rtype: string
         """
-        
+
+        ret = ""
         for id in self._nodes:
-            print(self._nodes[id])
+            ret += self._nodes[id].__str__() + '\n'
+        return ret
 
 if __name__ == '__main__':
     with open('data.txt') as data:
