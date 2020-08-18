@@ -48,9 +48,10 @@ class Tester(unittest.TestCase):
         """Test global aligner"""
         for one, two, score in self.known_align:
             score_matrix = protein_aligner.read_score_matrix('blossom.txt')
-            aligner = protein_aligner.ProteinAligner(one, two, score_matrix, -5)
-            result_s, result_a = aligner.align()
+            result_s, result_a = protein_aligner.align(one, two,
+                                                       score_matrix, -5)
             self.assertEqual(result_s, score)
+            print(result_a)
 
 if __name__ == '__main__':
     unittest.main()
