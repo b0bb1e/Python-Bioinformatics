@@ -433,7 +433,8 @@ def one_sampler_finder(DNAs: list, pat_len: int) -> list:
         profile = get_profile(cur_motifs)
         # choose a new motif for that DNA string with weighted probability
         weighted_probs = [calc_prob(DNAs[change][i:i + pat_len], profile)
-                          for i in range(len(DNAs[change]) - pat_len + 1)]        start = choices(range(len(weighted_probs)), weights=weighted_probs)[0]
+                          for i in range(len(DNAs[change]) - pat_len + 1)]        
+        start = choices(range(len(weighted_probs)), weights=weighted_probs)[0]
         # insert back in and re-calcualte
         cur_motifs.insert(change, DNAs[change][start:start + pat_len])
         cur_score = score_motifs(cur_motifs, profile)
