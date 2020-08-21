@@ -26,6 +26,8 @@ class Tester(unittest.TestCase):
 
     known_overlap = (('PAWHEAE', 'HEAGAWGHEE', 1),)
 
+    known_affine = (('PRTEINS', 'PRTWPSEIN', 8),)
+
     def test_coins(self):
         """Test min-change finder"""
         for value, denoms, coins in self.known_coins:
@@ -82,6 +84,14 @@ class Tester(unittest.TestCase):
         """Test overlap aligner"""
         for before, after, score in self.known_overlap:
             result_s, result_a = aligner.overlap_align(before, after)
+            self.assertEqual(result_s, score)
+
+    def test_affine(self):
+        """Test affine aligner"""
+        for one, two, score in self.known_local:
+            score_matrix = aligner.read_score_matrix('blossom.txt')
+            result_s, result_a = aligner.affine_align(one, two, -11, -1,
+                                                      score_matrix)
             self.assertEqual(result_s, score)
 
 if __name__ == '__main__':
