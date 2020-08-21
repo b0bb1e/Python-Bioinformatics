@@ -53,6 +53,7 @@ def _calc_grid(one: str, two: str, indel_penalty: int,
     
     for one_i in range(one_len):
         for two_i in range(two_len):
+            # current cell is at grid[one_i + 1][two_i + 1]
             # assume horizontal move is the best
             best_val = grid[one_i + 1][two_i][0] + indel_penalty
             backtrack = 'h'
@@ -251,6 +252,84 @@ def overlap_align(before: str, after: str) -> (int, str):
     
     return _align(before, after, -2, True, False, False, True,
                  match=1, no_match=-2)
+
+def _calc_affine_grids(one: str, two: str, gap_open: int, gap_ext: int,
+                       score_matrix: dict) -> (list, list, list):
+    one_len, two_len = len(one), len(two)
+    vert = [[(gap_open + (gap_ext * (i - 1)), 'v')]
+            for i in range(1, one_len + 1)]
+    diag = [[(gap_open + (gap_ext * (i - 1)), 'v')]
+            for i in range(one_len + 1)]
+    horiz = [[] for i in range(one_len + 1)]
+    horiz[0] = [[(gap_open + (gap_ext * (i - 1)), 'h')
+                 for i in range(1, two_len + 1)]]
+    diag[0] = [[(gap_open + (gap_ext * (i - 1)), 'h')
+                for i in range(two_len + 1)]]
+    diag[0][0] = (0, None)
+
+    for one_i in range(one_len):
+        for two_i in range(two_len):
+            # current cell is at vert[one_i][two_i + 1],
+            # horiz[one_i + 1][two_i], and diag[one_i + 1][two_i + 1]
+            vert[one_i].append((diag[one_i][two_i + 1][0] + gap_open, 'd'))
+            if one_i > 0:
+                if_ext = vert[one_i - 1][two_i + 1][0] + gap_ext
+                if if_ext > vert[one_i][two_i + 1][0]:
+                    vert[one_i][two_i + 1] = (if_ext, 'v')
+
+            horiz[one_i + 1].append((diag[one_i + 1][two_i][0] + gap_open, 'h'))
+            if two_i > 0:
+                if_ext = horiz[one_i + 1][two_i - 1][0] + gap_ext
+                if if_ext > horiz[one_i + 1][two_i - 1][0]:
+                    horiz[one_i + 1][two_i - 1] = (if_ext, 'h')
+
+            diag[one_i + 1].append((vert[one_i][two_i + 1], 'v'))
+            if horiz[one_i + 1][two_i][0] > diag[one_i + 1][two_i + 1][0]:
+                diag[one_i + 1][two_i + 1] = (horiz[one_i + 1][two_i][0], 'h')
+            if_diag = diag[one_i][two_i] + score_matrix[one[one_i]][two[two_i]]
+            if if_diag > diag[one_i + 1][two_i + 1]:
+                diag[one_i + 1][two_i + 1] = (if_diag, 'd')
+                
+    return vert, horiz, diag
+
+def _backtrack_affine_alignment(one: str, two: str, vert: list, horiz: list,
+                                diag: list) -> str:
+    cur_row, cur_col = len(one), len(two)
+    level = 'd'
+    one_align, two_align = '', ''
+    while not (one_i == 0 and two_i == 0):
+        if level == 'd':
+            backtrack = diag[cur_row][cur_col][1]
+        elif level == 'v':
+            backtrack = vert[cur_row - 1][cur_col][1]
+        elif level == 'h':
+            backtrack = horiz[cur_row][cur_col - 1][1]
+            
+        # vertical backtrack
+        if backtrack == 'v':
+            cur_row -= 1
+            one_align = one[cur_row] + one_align
+            two_align = '-' + two_align
+        # horizontal backtrack
+        elif backtrack == 'h':
+            cur_col -= 1
+            one_align = '-' + one_align
+            two_align = two[cur_col] + two_align
+        # diagonal backtrack
+        elif backtrack == 'd':
+            cur_row -= 1
+            cur_col -= 1
+            one_align = one[cur_row] + one_align
+            two_align = two[cur_col] + two_align
+        level = backtrack
+    return one_align + '\n' + two_align
+
+def affine_align(one: str, two: str, gap_open: int, gap_ext: int,
+                 score_matrix: dict) -> (int, str):
+    vert, horiz, diag = _calc_affine_grids(one, two, gap_open, gap_ext,
+                                           score_matrix)
+    score = diag[len(one)][len(two)]
+    return score, _backtrack_affine_alignment(one, two, vert, horiz, diag)
 
 def read_score_matrix(file_name: str) -> dict:
     """Read a scoring matrix from a file
