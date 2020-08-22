@@ -257,16 +257,18 @@ def _calc_affine_grids(one: str, two: str, gap_open: int, gap_ext: int,
                        score_matrix: dict) -> (list, list, list):
     one_len, two_len = len(one), len(two)
     vert = [[(gap_open + (gap_ext * (i - 1)), 'v')]
-            for i in range(1, one_len + 1)]
+               for i in range(1, one_len + 1)]
+    vert[0][0] = (gap_open, 'd')
     diag = [[(gap_open + (gap_ext * (i - 1)), 'v')]
             for i in range(one_len + 1)]
     horiz = [[] for i in range(one_len + 1)]
-    horiz[0] = [[(gap_open + (gap_ext * (i - 1)), 'h')
-                 for i in range(1, two_len + 1)]]
-    diag[0] = [[(gap_open + (gap_ext * (i - 1)), 'h')
-                for i in range(two_len + 1)]]
+    horiz[0] = [(gap_open + (gap_ext * (i - 1)), 'h')
+                 for i in range(1, two_len + 1)]
+    horiz[0][0] = (gap_open, 'd')
+    diag[0] = [(gap_open + (gap_ext * (i - 1)), 'h')
+                for i in range(two_len + 1)]
     diag[0][0] = (0, None)
-
+    
     for one_i in range(one_len):
         for two_i in range(two_len):
             # current cell is at vert[one_i][two_i + 1],
@@ -277,17 +279,18 @@ def _calc_affine_grids(one: str, two: str, gap_open: int, gap_ext: int,
                 if if_ext > vert[one_i][two_i + 1][0]:
                     vert[one_i][two_i + 1] = (if_ext, 'v')
 
-            horiz[one_i + 1].append((diag[one_i + 1][two_i][0] + gap_open, 'h'))
+            horiz[one_i + 1].append((diag[one_i + 1][two_i][0] + gap_open, 'd'))
             if two_i > 0:
                 if_ext = horiz[one_i + 1][two_i - 1][0] + gap_ext
-                if if_ext > horiz[one_i + 1][two_i - 1][0]:
-                    horiz[one_i + 1][two_i - 1] = (if_ext, 'h')
+                if if_ext > horiz[one_i + 1][two_i][0]:
+                    horiz[one_i + 1][two_i] = (if_ext, 'h')
 
-            diag[one_i + 1].append((vert[one_i][two_i + 1], 'v'))
+            diag[one_i + 1].append((vert[one_i][two_i + 1][0], 'v'))
             if horiz[one_i + 1][two_i][0] > diag[one_i + 1][two_i + 1][0]:
                 diag[one_i + 1][two_i + 1] = (horiz[one_i + 1][two_i][0], 'h')
-            if_diag = diag[one_i][two_i] + score_matrix[one[one_i]][two[two_i]]
-            if if_diag > diag[one_i + 1][two_i + 1]:
+            if_diag = (diag[one_i][two_i][0]
+                       + score_matrix[one[one_i]][two[two_i]])
+            if if_diag > diag[one_i + 1][two_i + 1][0]:
                 diag[one_i + 1][two_i + 1] = (if_diag, 'd')
                 
     return vert, horiz, diag
@@ -297,30 +300,36 @@ def _backtrack_affine_alignment(one: str, two: str, vert: list, horiz: list,
     cur_row, cur_col = len(one), len(two)
     level = 'd'
     one_align, two_align = '', ''
-    while not (one_i == 0 and two_i == 0):
+    
+    while not (cur_row == 0 and cur_col == 0):
         if level == 'd':
             backtrack = diag[cur_row][cur_col][1]
         elif level == 'v':
             backtrack = vert[cur_row - 1][cur_col][1]
+            one_align = one[cur_row - 1] + one_align
+            two_align = '-' + two_align
         elif level == 'h':
             backtrack = horiz[cur_row][cur_col - 1][1]
+            one_align = '-' + one_align
+            two_align = two[cur_col - 1] + two_align
             
         # vertical backtrack
-        if backtrack == 'v':
+        if backtrack == 'v' and level != 'd':
             cur_row -= 1
-            one_align = one[cur_row] + one_align
-            two_align = '-' + two_align
+            
         # horizontal backtrack
-        elif backtrack == 'h':
+        elif backtrack == 'h' and level != 'd':
             cur_col -= 1
-            one_align = '-' + one_align
-            two_align = two[cur_col] + two_align
+            
         # diagonal backtrack
         elif backtrack == 'd':
-            cur_row -= 1
-            cur_col -= 1
-            one_align = one[cur_row] + one_align
-            two_align = two[cur_col] + two_align
+            if level != 'h':
+                cur_row -= 1
+            if level != 'v':
+                cur_col -= 1
+            if level == 'd':
+                one_align = one[cur_row] + one_align
+                two_align = two[cur_col] + two_align
         level = backtrack
     return one_align + '\n' + two_align
 
@@ -328,7 +337,7 @@ def affine_align(one: str, two: str, gap_open: int, gap_ext: int,
                  score_matrix: dict) -> (int, str):
     vert, horiz, diag = _calc_affine_grids(one, two, gap_open, gap_ext,
                                            score_matrix)
-    score = diag[len(one)][len(two)]
+    score = diag[len(one)][len(two)][0]
     return score, _backtrack_affine_alignment(one, two, vert, horiz, diag)
 
 def read_score_matrix(file_name: str) -> dict:
@@ -350,6 +359,7 @@ def read_score_matrix(file_name: str) -> dict:
 
 if __name__ == '__main__':
     with open('data.txt') as data:
-        before = data.readline().rstrip()
-        after = data.readline().rstrip()
-    print(*overlap_align(before, after), sep='\n')
+        one = data.readline().rstrip()
+        two = data.readline().rstrip()
+    score_matrix = read_score_matrix('blossom.txt')
+    print(*affine_align(one, two, -11, -1, score_matrix), sep='\n')
