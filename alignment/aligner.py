@@ -217,7 +217,7 @@ def find_edit_distance(one: str, two: str) -> int:
     :type one: str
     :param two: the string along the top of the grid
     :type two: str
-    :returns: the optimal score and alignment
+    :returns: the edit distance
     :rtype: int
     """
     
@@ -255,41 +255,68 @@ def overlap_align(before: str, after: str) -> (int, str):
 
 def _calc_affine_grids(one: str, two: str, gap_open: int, gap_ext: int,
                        score_matrix: dict) -> (list, list, list):
+    """Calcualte the three levels of an affine alignment grid
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param gap_open: the penalty for the first indel in a gap
+    :type gap_open: int (negative)
+    :param gap_ext: the penalty for each indel after the first
+    :type gap_ext: int (negative, but less so than gap_open)
+    :param score_matrix: a scoring matrix for proteins
+    :type score_matrix: dict (strs : dicts (strs: ints))
+    :returns: the optimal score and alignment
+    :rtype: tuple (list(of lists (of tuples (int, str)))), same, same)
+    """
+    
     one_len, two_len = len(one), len(two)
+    # set up left column (horiz doesn't have)
     vert = [[(gap_open + (gap_ext * (i - 1)), 'v')]
                for i in range(1, one_len + 1)]
     vert[0][0] = (gap_open, 'd')
     diag = [[(gap_open + (gap_ext * (i - 1)), 'v')]
             for i in range(one_len + 1)]
+    # set up horiz's rows
     horiz = [[] for i in range(one_len + 1)]
+    # set up top row (vert doesn't have)
     horiz[0] = [(gap_open + (gap_ext * (i - 1)), 'h')
                  for i in range(1, two_len + 1)]
     horiz[0][0] = (gap_open, 'd')
     diag[0] = [(gap_open + (gap_ext * (i - 1)), 'h')
                 for i in range(two_len + 1)]
+    # re-set source values
     diag[0][0] = (0, None)
     
     for one_i in range(one_len):
         for two_i in range(two_len):
-            # current cell is at vert[one_i][two_i + 1],
+            # current cell to calculate is at vert[one_i][two_i + 1],
             # horiz[one_i + 1][two_i], and diag[one_i + 1][two_i + 1]
+
+            # assume vert backtracks to diag
             vert[one_i].append((diag[one_i][two_i + 1][0] + gap_open, 'd'))
             if one_i > 0:
                 if_ext = vert[one_i - 1][two_i + 1][0] + gap_ext
+                # chagne to backtrack to vert if better
                 if if_ext > vert[one_i][two_i + 1][0]:
                     vert[one_i][two_i + 1] = (if_ext, 'v')
 
+            # similar logic for horiz
             horiz[one_i + 1].append((diag[one_i + 1][two_i][0] + gap_open, 'd'))
             if two_i > 0:
                 if_ext = horiz[one_i + 1][two_i - 1][0] + gap_ext
                 if if_ext > horiz[one_i + 1][two_i][0]:
                     horiz[one_i + 1][two_i] = (if_ext, 'h')
 
+            # assume diag backtracks to vert
             diag[one_i + 1].append((vert[one_i][two_i + 1][0], 'v'))
+            # change to backtrack to horiz if better
             if horiz[one_i + 1][two_i][0] > diag[one_i + 1][two_i + 1][0]:
                 diag[one_i + 1][two_i + 1] = (horiz[one_i + 1][two_i][0], 'h')
             if_diag = (diag[one_i][two_i][0]
                        + score_matrix[one[one_i]][two[two_i]])
+            # change to backtrack to diag if better
             if if_diag > diag[one_i + 1][two_i + 1][0]:
                 diag[one_i + 1][two_i + 1] = (if_diag, 'd')
                 
@@ -297,44 +324,74 @@ def _calc_affine_grids(one: str, two: str, gap_open: int, gap_ext: int,
 
 def _backtrack_affine_alignment(one: str, two: str, vert: list, horiz: list,
                                 diag: list) -> str:
+    """Backtrack through and affine alignment grid
+        to determine optimal alignment
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param vert: the vertical-moves (indels for two) grid
+    :type grid: list (of lists (of tuples (int, str)))
+    :param horiz: the horizonal-moves (indels for one) grid
+    :type grid: list (of lists (of tuples (int, str)))
+    :param horiz: the diagonal-moves (no indels) grid
+    :type grid: list (of lists (of tuples (int, str)))
+    :returns: the optimal alignment, with one + newline + two
+    :rtype: str
+    """
+
+    # start at sink in diagonal level
     cur_row, cur_col = len(one), len(two)
     level = 'd'
     one_align, two_align = '', ''
     
+    # backtrack until hit the source node at (0, 0)
     while not (cur_row == 0 and cur_col == 0):
         if level == 'd':
             backtrack = diag[cur_row][cur_col][1]
+            # only d-d moves will update position and alignment
+            if backtrack == 'd':
+                cur_row -= 1
+                cur_col -= 1
+                one_align = one[cur_row] + one_align
+                two_align = two[cur_col] + two_align
         elif level == 'v':
             backtrack = vert[cur_row - 1][cur_col][1]
+            # all v- moves go back one row
+            cur_row -= 1
             one_align = one[cur_row - 1] + one_align
             two_align = '-' + two_align
         elif level == 'h':
             backtrack = horiz[cur_row][cur_col - 1][1]
+            # all h- mvoes go back one row
+            cur_col -= 1
             one_align = '-' + one_align
             two_align = two[cur_col - 1] + two_align
-            
-        # vertical backtrack
-        if backtrack == 'v' and level != 'd':
-            cur_row -= 1
-            
-        # horizontal backtrack
-        elif backtrack == 'h' and level != 'd':
-            cur_col -= 1
-            
-        # diagonal backtrack
-        elif backtrack == 'd':
-            if level != 'h':
-                cur_row -= 1
-            if level != 'v':
-                cur_col -= 1
-            if level == 'd':
-                one_align = one[cur_row] + one_align
-                two_align = two[cur_col] + two_align
         level = backtrack
     return one_align + '\n' + two_align
 
 def affine_align(one: str, two: str, gap_open: int, gap_ext: int,
                  score_matrix: dict) -> (int, str):
+    """Optimally align two strings with affine gap penalities
+
+    Affine gap penalties means the opening of a gap is penalized much
+    more than the extenion of a gap
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param gap_open: the penalty for the first indel in a gap
+    :type gap_open: int (negative)
+    :param gap_ext: the penalty for each indel after the first
+    :type gap_ext: int (negative, but less so than gap_open)
+    :param score_matrix: a scoring matrix for proteins
+    :type score_matrix: dict (strs : dicts (strs: ints))
+    :returns: the optimal score and alignment
+    :rtype: tuple (int, str)
+    """
+
     vert, horiz, diag = _calc_affine_grids(one, two, gap_open, gap_ext,
                                            score_matrix)
     score = diag[len(one)][len(two)][0]
