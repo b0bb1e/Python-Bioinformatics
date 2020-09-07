@@ -30,6 +30,8 @@ class Tester(unittest.TestCase):
                     ('PLAAN', 'PAN', 5), ('PAN', 'PLAAN', 5),
                     ('PRTEINS', 'PRTWPSEIN', 8))
 
+    known_middle_edge = (('PLEASANTLY', 'MEASNLY', ((4, 3), 'd')),)
+
     def test_coins(self):
         """Test min-change finder"""
         for value, denoms, coins in self.known_coins:
@@ -58,15 +60,15 @@ class Tester(unittest.TestCase):
 
     def test_align(self):
         """Test global aligner"""
+        score_matrix = aligner.read_score_matrix('blossom.txt')
         for one, two, score in self.known_align:
-            score_matrix = aligner.read_score_matrix('blossom.txt')
             result_s, result_a = aligner.global_align(one, two, score_matrix)
             self.assertEqual(result_s, score)
 
     def test_local(self):
         """Test local aligner"""
+        score_matrix = aligner.read_score_matrix('pam.txt')
         for one, two, score in self.known_local:
-            score_matrix = aligner.read_score_matrix('pam.txt')
             result_s, result_a = aligner.local_align(one, two, score_matrix)
             self.assertEqual(result_s, score)
 
@@ -90,12 +92,18 @@ class Tester(unittest.TestCase):
 
     def test_affine(self):
         """Test affine aligner"""
+        score_matrix = aligner.read_score_matrix('blossom.txt')
         for one, two, score in self.known_affine:
-            score_matrix = aligner.read_score_matrix('blossom.txt')
             result_s, result_a = aligner.affine_align(one, two, -11, -1,
                                                       score_matrix)
             self.assertEqual(result_s, score)
-            
+
+    def test_middle_edge(self):
+        """Test middle edge finder"""
+        score_matrix = aligner.read_score_matrix('blossom.txt')
+        for one, two, edge in self.known_middle_edge:
+            result = aligner.find_middle_edge(one, two, score_matrix)
+            self.assertEqual(result, edge)
 
 if __name__ == '__main__':
     unittest.main()
