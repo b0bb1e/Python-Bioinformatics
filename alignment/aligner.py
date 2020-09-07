@@ -397,6 +397,126 @@ def affine_align(one: str, two: str, gap_open: int, gap_ext: int,
     score = diag[len(one)][len(two)][0]
     return score, _backtrack_affine_alignment(one, two, vert, horiz, diag)
 
+def find_middle_edge(one: str, two: str, score_matrix: dict,
+                     indel_penalty: int) -> ((int, int), str):
+    """Find the middle edge in an alignment graph
+
+    Uses linear space and quadratic time
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param score_matrix: a scoring matrix for proteins
+    :type score_matrix: dict (strs : dicts (strs: ints))
+    :param indel_penalty: the score deduction for using an indel in alignment
+    :type indel_penalty: int (negative)
+    :returns: the middle point & its optimal path forward
+    :rtype: tuple (tuple (int, int), str)
+    """
+
+    return _find_middle_edge(one, two, score_matrix, 0, 0, len(two), len(one))
+
+def _find_middle_edge(one: str, two: str, score_matrix: dict,
+                      indel_penalty: int, min_row: int, min_col: int,
+                      max_row: int, max_col: int) -> ((int, int), str):
+    """Find the middle edge in a certain area of an alignment graph
+
+    Uses linear space and quadratic time
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param score_matrix: a scoring matrix for proteins
+    :type score_matrix: dict (strs : dicts (strs: ints))
+    :param indel_penalty: the score deduction for using an indel in alignment
+    :type indel_penalty: int (negative)
+    :param min_row: the lowest row number (top=0) of the area to search
+    :type min_row: int
+    :param min_col: the lowest column number (left=0) of the area to search
+    :type min_col: int
+    :param max_row: the highest row number (top=0) of the area to search
+    :type max_row: int
+    :param max_col: the highest column number (top=0) of the area to search
+    :type max_col: int
+    :param indel_penalty: the score deduction for using an indel in alignment
+    :type indel_penalty: int (negative)
+    :returns: the middle point & its optimal path forward
+    :rtype: tuple (tuple (int, int), str)
+    """
+
+    middle = int((min_col + max_col) / 2)
+    left_of_middle = _calc_col_from_edge(one, two, score_matrix, True, min_row,
+                                         min_col, max_row, middle - 1)
+    middle_from_right = _calc_col_from_edge(one, two, score_matrix, False,
+                                            max_row, max_col, min_row, middle)
+    backtracks = ['h']
+    middle_from_left = [left_of_middle[0] + indel_penalty]
+    for row in range(min_row + 1, max_row + 1):
+        cur_index = row - (min_row + 1)
+        best_val = middle_from_left[cur_index - 1] + indel_penalty
+        best_backtrack = 'v'
+
+        horiz_val = left_of_middle[cur_index] + indel_penalty
+        if horiz_val > best_val:
+            best_val, best_backtrack = horiz_val, 'h'
+
+        diag_val = (left_of_middle[cur_index - 1]
+                    + score_matrix[one[row - 1]][two[middle - 1]])
+        if diag_val > best_val:
+            best_val, best_backtrack = diag_val, 'd'
+
+        middle_from_left.append(best_val)
+        backtracks.append(best_backtrack)
+
+    max_val = float('-inf')
+    max_row = 0
+    for row in range(len(middle_from_left)):
+        cur_val = middle_from_left[row] + middle_from_right[row]
+        if cur_val > max_val:
+            max_val, max_row = cur_val, row
+
+    return ((max_row, middle), backtracks[max_row])
+
+def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
+                        indel_penalty: int, going_right: bool, start_row: int,
+                        start_col: int, end_row: int, end_col: int) -> list:
+    """Calculate the optimal values for a column in the alignment grid
+
+    :param one: the string along the side of the grid
+    :type one: str
+    :param two: the string along the top of the grid
+    :type two: str
+    :param score_matrix: a scoring matrix for proteins
+    :type score_matrix: dict (strs : dicts (strs: ints))
+    :param indel_penalty: the score deduction for using an indel in alignment
+    :type indel_penalty: int (negative)
+    :param going_right: whether the calculator should sweep left-to-right
+    :type going_right: bool
+    :param start_row: the starting row of the sweep
+    :type start_row: int
+    :param start_col: the starting column of the sweep
+    :type start_col: int
+    :param end_row: the ending row of the sweep
+    :type end_row: int
+    :param end_col: the ending column of the sweep
+    :type end_col: int
+    :returns: the optimal values for the column at the end of the sweep
+    :rtype: list (of ints)
+    """
+
+    if going_right:
+        change = 1
+    else:
+        change = -1
+
+    cur_col = [indel_penalty * i for i in range(len(one) + 1)]
+    for col in range(start_col + change, end_col + change, change):
+        for row in range(end_row, start_row, change):
+            cur_index = 0 # TODO: figure this out
+    return cur_col
+    
 def read_score_matrix(file_name: str) -> dict:
     """Read a scoring matrix from a file
 
