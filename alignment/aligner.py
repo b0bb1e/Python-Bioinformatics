@@ -415,7 +415,8 @@ def find_middle_edge(one: str, two: str, score_matrix: dict,
     :rtype: tuple (tuple (int, int), str)
     """
 
-    return _find_middle_edge(one, two, score_matrix, 0, 0, len(two), len(one))
+    return _find_middle_edge(one, two, score_matrix, -5,
+                             0, 0, len(one), len(two))
 
 def _find_middle_edge(one: str, two: str, score_matrix: dict,
                       indel_penalty: int, min_row: int, min_col: int,
@@ -446,15 +447,15 @@ def _find_middle_edge(one: str, two: str, score_matrix: dict,
     :rtype: tuple (tuple (int, int), str)
     """
 
-    middle = int((min_col + max_col) / 2)
-    left_of_middle = _calc_col_from_edge(one, two, score_matrix, True, min_row,
-                                         min_col, max_row, middle - 1)
-    middle_from_right = _calc_col_from_edge(one, two, score_matrix, False,
+    middle = int((min_col + max_col) / 2) + 1
+    left_of_middle = _calc_col_from_edge(one, two, score_matrix, -5, True,
+                                         min_row, min_col, max_row, middle - 1)
+    middle_from_right = _calc_col_from_edge(one, two, score_matrix, -5, False,
                                             max_row, max_col, min_row, middle)
     backtracks = ['h']
     middle_from_left = [left_of_middle[0] + indel_penalty]
     for row in range(min_row + 1, max_row + 1):
-        cur_index = row - (min_row + 1)
+        cur_index = row - min_row
         best_val = middle_from_left[cur_index - 1] + indel_penalty
         best_backtrack = 'v'
 
@@ -476,8 +477,12 @@ def _find_middle_edge(one: str, two: str, score_matrix: dict,
         cur_val = middle_from_left[row] + middle_from_right[row]
         if cur_val > max_val:
             max_val, max_row = cur_val, row
-
-    return ((max_row, middle), backtracks[max_row])
+    
+    if backtracks[max_row] != 'v':
+        mid_row = max_row - 1
+    else:
+        mid_row = max_row
+    return ((mid_row, middle - 1), backtracks[max_row])
 
 def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
                         indel_penalty: int, going_right: bool, start_row: int,
@@ -514,7 +519,15 @@ def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
     cur_col = [indel_penalty * i for i in range(len(one) + 1)]
     for col in range(start_col + change, end_col + change, change):
         for row in range(end_row, start_row, change):
-            cur_index = 0 # TODO: figure this out
+            cur_index = (end_row - row) * change
+            cur_col[cur_index] = max(cur_col[cur_index] + indel_penalty,
+                                     cur_col[cur_index - 1] + indel_penalty,
+                                     (cur_col[cur_index - 1]
+                                      + score_matrix[one[row - 1]][two[col - 1]]
+                                      ))
+        cur_col[0] = cur_col[0] + indel_penalty
+    if not going_right:
+        cur_col.reverse()
     return cur_col
     
 def read_score_matrix(file_name: str) -> dict:
@@ -539,4 +552,4 @@ if __name__ == '__main__':
         one = data.readline().rstrip()
         two = data.readline().rstrip()
     score_matrix = read_score_matrix('blossom.txt')
-    print(*affine_align(one, two, -11, -1, score_matrix), sep='\n')
+    edge = find_middle_edge(one, two, score_matrix, -5)
