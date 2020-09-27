@@ -30,7 +30,8 @@ class Tester(unittest.TestCase):
                     ('PLAAN', 'PAN', 5), ('PAN', 'PLAAN', 5),
                     ('PRTEINS', 'PRTWPSEIN', 8))
 
-    known_middle_edge = (('PA', 'A', ((1, 0), 'd')),
+    known_middle_edge = (('A', '', ((0, 0), 'v')),
+                         ('PA', 'A', ((1, 0), 'd')),
                          ('PA', 'AA', ((1, 1), 'd')),
                          ('A', 'AP', ((1, 1), 'h')),
                          ('PLEASANTLY', 'MEASNLY', ((4, 3), 'd')))
@@ -105,7 +106,9 @@ class Tester(unittest.TestCase):
         """Test middle edge finder"""
         score_matrix = aligner.read_score_matrix('blossom.txt')
         for one, two, edge in self.known_middle_edge:
-            result = aligner.find_middle_edge(one, two, score_matrix, -5)
+            print("testing ", one, " and ", two,
+                  " which should have edge ", edge)
+            result = aligner.find_middle_edge(one, two, score_matrix, -5)            
             self.assertEqual(result, edge)
 
 if __name__ == '__main__':
