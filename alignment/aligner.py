@@ -444,45 +444,57 @@ def _find_middle_edge(one: str, two: str, score_matrix: dict,
     :param indel_penalty: the score deduction for using an indel in alignment
     :type indel_penalty: int (negative)
     :returns: the middle point & its optimal path forward
+              in the format ((row, col), direction)
     :rtype: tuple (tuple (int, int), str)
     """
 
-    middle = int((min_col + max_col) / 2) + 1
-    left_of_middle = _calc_col_from_edge(one, two, score_matrix, -5, True,
-                                         min_row, min_col, max_row, middle - 1)
-    middle_from_right = _calc_col_from_edge(one, two, score_matrix, -5, False,
-                                            max_row, max_col, min_row, middle)
+    if min_col == max_col:
+        return ((min_row, min_col), 'v')
+
+    mid_col = int((min_col + max_col) / 2)
+    # sweep from left edge to middle column
+    mid_from_left = _calc_col_from_edge(one, two, score_matrix, -5, True,
+                                        min_row, min_col, max_row, mid_col)
+    # sweep from right edge to column one right of middle column
+    right_of_mid = _calc_col_from_edge(one, two, score_matrix, -5, False,
+                                       max_row, max_col, min_row, mid_col + 1)
+    print(mid_from_left, right_of_mid)
+    
     backtracks = ['h']
-    middle_from_left = [left_of_middle[0] + indel_penalty]
+    # optimal values for column one right of middle column from left
+    one_past_mid = [mid_from_left[0] + indel_penalty]
     for row in range(min_row + 1, max_row + 1):
         cur_index = row - min_row
-        best_val = middle_from_left[cur_index - 1] + indel_penalty
+        best_val = one_past_mid[cur_index - 1] + indel_penalty
         best_backtrack = 'v'
 
-        horiz_val = left_of_middle[cur_index] + indel_penalty
+        horiz_val = mid_from_left[cur_index] + indel_penalty
         if horiz_val > best_val:
             best_val, best_backtrack = horiz_val, 'h'
 
-        diag_val = (left_of_middle[cur_index - 1]
-                    + score_matrix[one[row - 1]][two[middle - 1]])
+        diag_val = (mid_from_left[cur_index - 1]
+                    + score_matrix[one[row - 1]][two[mid_col]])
         if diag_val > best_val:
             best_val, best_backtrack = diag_val, 'd'
 
-        middle_from_left.append(best_val)
+        one_past_mid.append(best_val)
         backtracks.append(best_backtrack)
 
     max_val = float('-inf')
     max_row = 0
-    for row in range(len(middle_from_left)):
-        cur_val = middle_from_left[row] + middle_from_right[row]
+    # find optimal node to go to in one right of middle column
+    for row in range(len(one_past_mid)):
+        cur_val = one_past_mid[row] + right_of_mid[row]
+        print(cur_val)
         if cur_val > max_val:
             max_val, max_row = cur_val, row
-    
-    if backtracks[max_row] != 'v':
+
+    # figure out coordinates of middle node
+    if backtracks[max_row] == 'd':
         mid_row = max_row - 1
     else:
         mid_row = max_row
-    return ((mid_row, middle - 1), backtracks[max_row])
+    return ((mid_row, mid_col), backtracks[max_row])
 
 def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
                         indel_penalty: int, going_right: bool, start_row: int,
@@ -511,21 +523,31 @@ def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
     :rtype: list (of ints)
     """
 
+    print("going right? ", going_right, " col #", start_col, " -> col#",
+          end_col)
+
     if going_right:
         change = 1
     else:
         change = -1
 
-    cur_col = [indel_penalty * i for i in range(len(one) + 1)]
+    # set up initial column (all indels)
+    num_rows = (end_row - start_row) * change + 1
+    cur_col = [indel_penalty * i for i in range(num_rows)]
+    # sweep from one past start column to end column
     for col in range(start_col + change, end_col + change, change):
-        for row in range(end_row, start_row, change):
-            cur_index = (end_row - row) * change
+        # sweep from bottom row to one before top row
+        for row in range(end_row, start_row, -1 * change):
+            cur_index = num_rows - (end_row - row) * change - 1
+            # maximize this cell's value
             cur_col[cur_index] = max(cur_col[cur_index] + indel_penalty,
                                      cur_col[cur_index - 1] + indel_penalty,
                                      (cur_col[cur_index - 1]
                                       + score_matrix[one[row - 1]][two[col - 1]]
                                       ))
+        # top cell must be an indel
         cur_col[0] = cur_col[0] + indel_penalty
+    # if this was a reverse sweep, reverse the column
     if not going_right:
         cur_col.reverse()
     return cur_col
