@@ -34,6 +34,7 @@ class Tester(unittest.TestCase):
                          ('PA', 'A', ((1, 0), 'd')),
                          ('PA', 'AA', ((1, 1), 'd')),
                          ('A', 'AP', ((1, 1), 'h')),
+                         ('PAAA', 'APA', ((2, 1), 'd')),
                          ('PLEASANTLY', 'MEASNLY', ((4, 3), 'd')))
 
     def test_coins(self):
