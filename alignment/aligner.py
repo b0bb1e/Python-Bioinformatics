@@ -453,11 +453,11 @@ def _find_middle_edge(one: str, two: str, score_matrix: dict,
 
     mid_col = int((min_col + max_col) / 2)
     # sweep from left edge to middle column
-    mid_from_left = _calc_col_from_edge(one, two, score_matrix, -5, True,
+    mid_from_left = _calc_col_from_left(one, two, score_matrix, -5,
                                         min_row, min_col, max_row, mid_col)
     # sweep from right edge to column one right of middle column
-    right_of_mid = _calc_col_from_edge(one, two, score_matrix, -5, False,
-                                       max_row, max_col, min_row, mid_col + 1)
+    right_of_mid = _calc_col_from_right(one, two, score_matrix, -5,
+                                        max_row, max_col, min_row, mid_col + 1)
     print(mid_from_left, right_of_mid)
     
     backtracks = ['h']
@@ -496,7 +496,7 @@ def _find_middle_edge(one: str, two: str, score_matrix: dict,
         mid_row = max_row
     return ((mid_row, mid_col), backtracks[max_row])
 
-def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
+def _calc_col_from_edge_(one: str, two: str, score_matrix: dict,
                         indel_penalty: int, going_right: bool, start_row: int,
                         start_col: int, end_row: int, end_col: int) -> list:
     """Calculate the optimal values for a column in the alignment grid
@@ -536,6 +536,7 @@ def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
     cur_col = [indel_penalty * i for i in range(num_rows)]
     # sweep from one past start column to end column
     for col in range(start_col + change, end_col + change, change):
+        print(cur_col)
         # sweep from bottom row to one before top row
         for row in range(end_row, start_row, -1 * change):
             cur_index = num_rows - (end_row - row) * change - 1
@@ -547,9 +548,63 @@ def _calc_col_from_edge(one: str, two: str, score_matrix: dict,
                                       ))
         # top cell must be an indel
         cur_col[0] = cur_col[0] + indel_penalty
+    print(cur_col)
     # if this was a reverse sweep, reverse the column
     if not going_right:
         cur_col.reverse()
+    return cur_col
+
+def _calc_col_from_left(one: str, two: str, score_matrix: dict,
+                        indel_penalty: int, start_row: int, start_col: int,
+                        end_row: int, end_col: int) -> list:
+    print("going left col #", start_col, " -> col#", end_col)
+
+    # set up initial column (all indels)
+    num_rows = end_row - start_row + 1
+    last_col = [indel_penalty * i for i in range(num_rows)]
+    cur_col = list(last_col)
+    # sweep from one right of start column to end column
+    for col in range(start_col + 1, end_col + 1):
+        print(cur_col)
+        # top cell must be an indel
+        cur_col[0] = last_col[0] + indel_penalty
+        # sweep from one after top row to bottom row
+        for row in range(start_row + 1, end_row + 1):
+            cur_index = num_rows - (end_row - row) - 1
+            # maximize this cell's value
+            cur_col[cur_index] = max(last_col[cur_index] + indel_penalty,
+                                     cur_col[cur_index - 1] + indel_penalty,
+                                     (last_col[cur_index - 1] +
+                                      score_matrix[one[row - 1]][two[col - 1]]
+                                      ))
+    print(cur_col)
+    return cur_col
+
+def _calc_col_from_right(one: str, two: str, score_matrix: dict,
+                         indel_penalty: int, start_row: int, start_col: int,
+                         end_row: int, end_col: int) -> list:
+    print("going right col #", start_col, " -> col#", end_col)
+
+    # set up initial column (all indels)
+    num_rows = (start_row - end_row) + 1
+    last_col = [indel_penalty * i for i in range(num_rows)]
+    last_col.reverse()
+    cur_col = list(last_col)
+    # sweep from one left of start column to end column
+    for col in range(start_col - 1, end_col - 1, -1):
+        print(cur_col)
+        # bottom cell must be an indel
+        cur_col[num_rows - 1] = last_col[num_rows - 1] + indel_penalty
+        # sweep from bottom row to one before top row
+        for row in range(start_row - 1, end_row - 1, -1):
+            cur_index = num_rows - (start_row - row) - 1
+            # maximize this cell's value
+            cur_col[cur_index] = max(last_col[cur_index] + indel_penalty,
+                                     cur_col[cur_index + 1] + indel_penalty,
+                                     (last_col[cur_index + 1]
+                                      + score_matrix[one[row]][two[col]]
+                                      ))        
+    print(cur_col)
     return cur_col
     
 def read_score_matrix(file_name: str) -> dict:
