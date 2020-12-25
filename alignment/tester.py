@@ -1,6 +1,7 @@
 import dynamic_practice
 import dag
 import aligner
+import low_memory
 import unittest
 
 class Tester(unittest.TestCase):
@@ -107,9 +108,9 @@ class Tester(unittest.TestCase):
         """Test middle edge finder"""
         score_matrix = aligner.read_score_matrix('blossom.txt')
         for one, two, edge in self.known_middle_edge:
-            print("testing ", one, " and ", two,
-                  " which should have edge ", edge)
-            result = aligner.find_middle_edge(one, two, score_matrix, -5)            
+            lm_aligner = low_memory.Low_Memory_Aligner(one, two,
+                                                       score_matrix, -5)
+            result = lm_aligner.find_middle_edge()            
             self.assertEqual(result, edge)
 
 if __name__ == '__main__':
